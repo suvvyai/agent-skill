@@ -28,6 +28,8 @@ Suvvy is a platform for creating LLM-powered chatbots (**Bots**) that connect to
 | Client chat session | **Dialog** | `dialog` | Диалог | Dialogue |
 | Sub-agent bot | **Subordinate Bot** | — | Подчиненный бот | Slave bot |
 | Scheduled outbound message | **Follow-Up** | — | Фоллоу Ап, Отложенное сообщение | Ping, Scheduled Message |
+| Dialog-scoped named field | **Custom Variable** | `custom_variable` | Пользовательская переменная, Поле диалога | Dialog field |
+| Bot-defined dialog memory | **Memory** | — | Память | Dynamic Variables |
 
 > In MCP tool names and API parameters, always use the code/MCP term (e.g., `instance_id`, `faq_document`).
 
@@ -35,12 +37,48 @@ Suvvy is a platform for creating LLM-powered chatbots (**Bots**) that connect to
 
 ### Bots (Instances)
 
-A bot is the central entity on the platform. Each bot has:
+A bot is the central entity on the platform. **Always create bots without a template** — start from a blank configuration and build up from scratch.
+
+Each bot has:
 - A **system prompt** (also called **Instruction**) — defines behavior, tone, and dialogue logic
 - A **knowledge base** — FAQ Documents, Big Documents, and/or Tables
 - **Channels** — where clients interact (messengers, chat widgets, etc.)
 - **Integrations** — pre-built connectors available on the platform; when attached to a bot, they add tools that let the bot interact with external applications (CRMs, booking systems, etc.)
 - **Custom Tools** — optional callable actions
+
+### Key Bot Settings
+
+All bot settings are updated via `update_instance_settings`. The most important ones:
+
+**LLM:**
+- `llm_code` — model used in production; `test_llm_code` — model used only in the test chat (does not affect live dialogues)
+- `llm_settings.reasoning_effort` — reasoning depth: `minimal` / `low` / `medium` / `high`
+- `llm_settings.web_search` — enable internet search (configure `country` and optionally `allowed_domains`)
+
+**Dialogue history** (`history_type`):
+- `enabled` — full history | `disabled` — no history | `last_time` — last N minutes | `last_messages` — last N messages
+- Controls how much context is passed to the LLM each turn
+
+**Working hours** (`work_days`): per-day time ranges when the bot responds; silent outside configured hours.
+
+**Employee interception** (`interception_by_employee`): when a manager writes in the same channel chat (WhatsApp, Telegram, etc.), the system detects it and freezes the bot so the human can handle the conversation directly.
+
+**Image handling** (`image_description_mode`):
+- `disabled` — images from clients are ignored
+- `vision` — the LLM sees the image directly (requires a vision-capable model)
+- `if_not_found_in_knowledge_base` — first tries to match the image to an FAQ Document; if no match, a helper model describes the image and passes the text description to the bot; use for models without native vision support
+- `always` — always describe images with a helper model regardless of knowledge base match
+
+**Structured answer** (`structured_answer`): when enabled in default mode (no custom JSON schema), the bot can send images and files by writing a direct URL in its response, and can split one response into multiple sequential messages. Custom schema mode makes the bot always return a raw JSON object.
+
+**Message patterns:**
+- `ignore_customer_patterns` / `ignore_employee_patterns` — regex patterns; matching messages are silently skipped by the bot
+- `stop_dialogue_patterns` — if a client message matches, the bot stops responding in this dialogue until resumed
+- `resume_customer_dialogue_patterns` / `resume_employee_dialogue_patterns` — patterns that re-activate a stopped bot
+
+**`notify_on_call` / `notify_if_called`** (on Custom Tools and FAQ Documents): sends a notification to the manager's Telegram or Messenger MAX when the tool or document is triggered. Use to alert a human when a sensitive topic comes up.
+
+**`refuse_on_call` / `refuse_if_called`** (on Custom Tools and FAQ Documents): bot skips the reply for the specific triggering message. Dialogue continues normally on subsequent messages. On FAQ Documents, setting an empty text body (`""`) achieves the same silent-retrieval effect.
 
 ### Functions
 
@@ -57,11 +95,21 @@ Suvvy supports three knowledge base types that can run simultaneously on the sam
 
 #### FAQ Documents (Direct Questions)
 
-- Each file has a **title** and a **text body**
-- At runtime the bot sees **only the list of titles** — it decides which file to retrieve
+- Each file has two titles: **`title`** (shown in the Suvvy UI to managers) and **`title_for_search`** (what the bot actually sees when deciding which file to retrieve). If `title_for_search` is not set, the bot falls back to `title`. Set `title_for_search` when the manager-facing label and the bot-facing intent description should differ.
+- Each file also has a **text body**
+- At runtime the bot sees the list of search titles (`title_for_search`) — it decides which file to retrieve
 - On retrieval the bot receives the full text, which can contain answer text, instructions, or function calls
+- If the text body is **empty (`""`)**, the bot retrieves the document silently — it calls the file but sends no reply to that message. Use this when the document exists only to trigger events or send a notification.
 - Best for: specific intents, structured answers, branching instructions triggered by user phrasing
-- **MCP retrieval function:** `get_file_text("Exact Title")`
+- **FAQ Document retrieval function:** `get_file_text("Document Title")`
+- **`notify_if_called`** — sends a notification to the manager (Telegram / Messenger MAX) when this document is retrieved. Use to alert a human that a sensitive topic was triggered (e.g., client asked about a discount → manager gets notified and can join the dialogue).
+- **Events on retrieval:** Each FAQ Document has separate event settings (not in the text body) that fire the moment the bot retrieves the file. Supported events depend on which integration is connected to the bot:
+  - amoCRM / Kommo: switch lead status in pipeline, add tags, edit custom fields, add dialogue summary
+  - Bitrix24: switch status, leave chat, switch to free operator, add summary
+  - HelpDeskEddy: change department, owner, priority, status, type
+  - RetailCRM: add tags, change assignee
+  - Umnico: switch status; Usedesk: switch agent
+  - Platform-level: trigger Follow-Up groups, send files to the client, stop dialogue, change LLM temperature
 
 #### Big Documents
 
@@ -84,15 +132,58 @@ Suvvy supports three knowledge base types that can run simultaneously on the sam
 
 Custom Tools are a powerful way to extend a bot's capabilities with arbitrary logic. Each Custom Tool consists of one or more **Steps** (called **actions** in code and MCP configuration) executed sequentially. Steps can pass data to each other via **variables** — for example, a webhook step can fetch external data and store it in a variable, which the next step then uses in a SQL query to look up a matching row in a Table.
 
-Available step types include (full list and parameters in the MCP tool schema):
-- **Webhook** — call an external URL and optionally capture the response
-- **Switch bot** — hand off the conversation to another bot
-- **Call subordinate bot** — invoke another bot as a sub-agent and return its response
-- And more
+**Step types** (full parameters in the MCP tool schema):
 
-A Custom Tool can also be configured to accept **arguments** — the bot will extract the required information from the conversation and pass it to the tool as function parameters. Configuration details are in the relevant MCP tool schema.
+| Type | Description |
+|---|---|
+| `webhook` | HTTP request (GET/POST/PUT/PATCH/DELETE) to an external URL; response parseable into variables |
+| `bot_call` | Call a Subordinate Bot; result returned as tool output |
+| `query_table` | SQL query on a Table (up to 5 queries chained); export results into variables |
+| `change_active_bot` | Switch active bot in the dialogue; `null` = return to the original bot |
+| `send_message` | Send a message to the client immediately during execution (not returned to the bot) |
+| `read_faq_document` | Read an FAQ Document programmatically; export its text to a variable |
+| `set_custom_variables` | Set one or more Custom Variables in the dialogue |
+| `set_memory` | Set a Memory key-value pair |
+| `add_reminder` | Schedule a Follow-Up |
+| `cancel_reminders` | Cancel pending Follow-Ups by ID or cancel all |
+| `scrape_url` | Fetch and parse a web page; result into a variable |
+| `extract_text_from_file` | Extract text from a file passed as a tool argument |
+| `request_dialogue_rate` | Ask the client to rate the dialogue (👍/👎 or 1–5 stars) |
+| `schedule_phone_call` | Schedule an outbound voice phone call |
+| `yookassa` | Create a YooKassa payment link |
+| `prodamus` | Create a Prodamus payment link |
+| `telegram` | Add an inline or reply keyboard (Telegram only) |
+| `vk` | Add a keyboard (VK only) |
+| `instagram` | Send a direct message in response to a comment |
+| `omnidesk` | Helpdesk actions in Omnidesk (change assignee / group) |
+| `amocrm` / `kommo` | CRM actions: add/edit lead or contact, send summary note |
+| `generate_image` | Generate an image from a text prompt |
+| `edit_image` | Edit an existing image |
+| `base_action` | Placeholder step — no action, returns a configured static text |
 
-This makes Custom Tools suitable for complex multi-step workflows, not just simple single-action calls.
+**Arguments** — the bot extracts specified values from the conversation and passes them as typed function parameters. Types: `string`, `number`, `datetime`, `boolean`, `list`, `file_id`, `file_id_list`. Each argument has an optional description that guides the bot on what to extract.
+
+**Constants** — static string values (e.g., API keys, fixed IDs) defined on the tool and available in all steps as variables. Unlike arguments (filled by the bot at call time), constants never change.
+
+**Return settings** — control what the bot receives as the function result:
+- `only_last` (default) — result of the last step only
+- `only_first` — result of the first step only
+- `all` — all step results concatenated
+- `custom_result` — a custom text assembled from step variables
+
+**Auto-trigger (`trigger_settings`)** — a Custom Tool can be configured to fire **automatically** without the bot making a deliberate call, on a specific event:
+- `new_dialogue` — when a new dialogue starts
+- `new_customer_message` — on every client message
+- `new_employee_message` — on every employee message
+- `new_instance_response` — after the bot produces a response
+
+Auto-triggered tools run invisibly in the background with predefined argument values baked in.
+
+**`refuse_on_call`** — bot skips sending a reply to the specific message that triggered this tool. Subsequent messages are handled normally. Use when the tool itself sends the response via a `send_message` step.
+
+**`stop_dialogue_on_call`** — bot stops responding in this dialogue entirely after the tool runs. The dialogue stays open for a human employee to take over.
+
+**`notify_on_call`** — sends a notification to the manager's Telegram or Messenger MAX when the tool is called. Use to alert a human that something notable happened (e.g., client asked about a sensitive topic).
 
 ### Integrations
 
@@ -136,6 +227,24 @@ A Follow-Up is a message scheduled to be sent to a client at a future time. It i
 **Auto-cancellation:** A follow-up is automatically cancelled if the client sends any message before it fires.
 
 There are multiple follow-up types; full details and parameters are in the MCP tool schema.
+
+### Custom Variables (Dialog Fields)
+
+Custom Variables are named fields that persist for the entire duration of a dialog. They are separate from the step-level variables used to pass data between Custom Tool steps.
+
+- Can be set by the bot directly (the bot writes a value to a named field) or by a Custom Tool step
+- Persist across the whole dialog — survives bot switches, multiple turns, Custom Tool calls
+- Useful for storing client data collected during conversation (e.g., phone number, chosen product, lead stage)
+- The predefined list of variable names is configured in advance; the bot assigns values to those names
+
+### Memory (Dynamic Variables)
+
+Memory works the same as Custom Variables but without a predefined list of field names. The bot sets key-value pairs freely during the dialog — it decides both the key name and the value. Like Custom Variables, memory entries persist for the entire dialog.
+
+- **Must be explicitly enabled** in bot settings (`memory.is_enabled = true`); disabled by default — `set_memory` steps will not work until this is turned on
+- Use when the set of fields cannot be known in advance or varies per conversation
+- The bot manages its own memory: creates, reads, and updates keys as needed
+- Optional: `clear_with_context` — clears memory entries when the dialogue context is reset
 
 ### Common Bot Archetypes
 
@@ -194,6 +303,61 @@ Each FAQ Document must:
 | Contact Us | FAQ |
 | Pricing Plans | Services We Offer |
 
+## Bot Setup Workflow
+
+### Getting Started
+
+A good starting point is to create the bot (`create_instance`, always without a template), write a first version of the system prompt, and create the initial FAQ Documents for the most common intents. That's enough to run the first test. From there, the process is iterative — add Custom Tools, Custom Variables, Memory, adjust bot settings, and keep testing.
+
+### Test-Iterate Loop
+
+Every change to the bot must be followed by a test. This is the core working cycle:
+
+```
+Change something → Test → Identify issues → Fix → Reset test chat → Repeat
+```
+
+**How to run a test session:**
+
+1. Get the test dialogue: `get_latest_test_dialogue_for_instance_by_instance_id` → save `dialogue_id`
+2. Reset for a clean session: `reset_latest_or_create_new_test_dialogue_for_instance_by`
+3. Send client messages one at a time: `send_message_to_test_dialogue_by_id`
+4. Read the bot's responses and check for issues
+5. If issues found — fix in the bot config, then reset and re-run the scenario from step 2
+
+Always reset the test chat before starting a new scenario — the bot's behaviour depends on conversation history, so stale context produces misleading results.
+
+### How to Write Test Messages
+
+Messages in the test chat are sent **from the client's perspective** (`message_sender: "customer"`). The agent acts as a real client in a real scenario, sending messages one at a time exactly as a user would.
+
+Example test sequence:
+```
+→ "Привет"
+→ "Хочу узнать стоимость ваших услуг"
+→ "А есть скидки для новых клиентов?"
+→ "Хорошо, хочу записаться на консультацию"
+```
+
+Tips:
+- Follow the intended dialogue scenario from start to finish, not just test one phrase in isolation
+- Vary phrasing between runs — the bot must handle natural, imperfect language
+- Use `fake_channel` to simulate a specific channel type (e.g., `telegram_bot`, `whatsapp`, `amocrm`) when channel-specific behaviour matters
+- To test employee interception: send a message as `message_sender: "employee"` and verify the bot freezes
+
+### Diagnosing Issues
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Bot doesn't call a function it should | No trigger condition in instruction; function description too vague | Add explicit condition in instruction; improve `tool_description` or `title_for_search` |
+| Bot calls the wrong FAQ Document | Similar search titles; `title_for_search` not distinct enough | Rewrite `title_for_search` for both the correct and the incorrectly-called document |
+| Bot response doesn't match the expected scenario | Dialogue Logic section incomplete or out of order | Revise Dialogue Logic — one action per step, linked sequentially |
+| Poor response style (too formal, too verbose, wrong tone) | Response Style section too vague | Tighten the Response Style section with concrete examples |
+| Bot invents information (hallucination) | Facts live in the instruction instead of FAQ Documents | Move factual content to FAQ Documents; add "never invent data" to Restrictions |
+| Bot ignores a restriction | Restriction buried under other content | Move critical restrictions to a dedicated, clearly labeled section |
+| Custom Tool not triggered | Trigger condition missing in instruction; wrong argument types | Add explicit instruction for when to call the tool; verify argument descriptions |
+| Function called but wrong result | Step logic or variable mapping incorrect | Inspect step variables and `parse_json_variables` in the webhook step |
+
 ## Reviewing Existing System Prompts
 
 When auditing a bot's prompt:
@@ -213,3 +377,7 @@ When auditing a bot's prompt:
 | Multiple intents in one FAQ Document | One file = one intent |
 | Generic FAQ Document titles | Use specific intent-based titles (2–4 words) |
 | Calling `search_in_knowledge_base` for a known specific file | Use `get_file_text` with the exact title |
+| Using `set_memory` steps without enabling memory in bot settings | Enable `memory.is_enabled = true` first |
+| `title` and `title_for_search` mismatch — bot sees wrong description | Set `title_for_search` to an intent-based phrase the bot will recognize |
+| Creating bot from a platform template | Always create without a template (`template_code: "default"`, no `template_variable`) |
+| Expecting `test_llm_code` model to affect live dialogues | `test_llm_code` only applies in the test chat |
