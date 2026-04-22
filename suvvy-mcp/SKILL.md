@@ -133,7 +133,7 @@ Suvvy supports three knowledge base types that can run simultaneously on the sam
 - The bot issues a **semantic text query** and receives relevant passages in return
 - Big Documents are usually not written from scratch — they are uploaded from existing files (DOCX, PDF, and other formats; supported formats are listed in the relevant MCP tool schema). This makes it easy to give a bot access to internal documentation, manuals, books, or any structured knowledge source without manual rewriting.
 - Best for: large unstructured content — internal docs, product manuals, policy documents, long-form articles
-- **MCP search function:** `search_in_knowledge_base("natural language query")`
+- **Search function:** `search_in_knowledge_base("natural language query")`
 
 #### Tables
 
