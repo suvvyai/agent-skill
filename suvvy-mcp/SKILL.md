@@ -280,6 +280,17 @@ Structure every system prompt into these sections (in order):
 - Factual reference data (prices, addresses, FAQs) belongs in FAQ Documents, not the prompt
 - Each dialogue step must be a single actionable instruction, logically linked to the previous
 
+**Instruction variables:**
+
+The instruction supports dynamic variables that are substituted with real values each time the bot receives a message. Write them in `{variable}` format directly in the instruction text.
+
+Examples:
+- `Client name — {name}`
+- `Client phone number — {client_phone}`
+- `Current date and time — {current_datetime}`
+
+Use `get_instance_instruction_variables` to get the list of available variables for a given bot. This list is not exhaustive — additional variables (e.g., from connected integrations or channels) can be found by inspecting dialogue info with `get_dialogue_with_messages_by_id`.
+
 **Function calls in prompts (optional but recommended):**
 
 The bot automatically sees all available functions — from integrations, knowledge base, custom tools, etc. — without them being mentioned in the prompt. However, explicitly describing when to call a function gives the bot a clear action plan and reduces ambiguity.
