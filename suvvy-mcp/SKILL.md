@@ -327,6 +327,8 @@ Change something → Test → Identify issues → Fix → Reset test chat → Re
 
 Always reset the test chat before starting a new scenario — the bot's behaviour depends on conversation history, so stale context produces misleading results.
 
+**Run each scenario multiple times.** LLM responses are non-deterministic: the bot may answer correctly once and incorrectly the next. A single passing run does not mean the bot is reliable. Repeat the same scenario with the same and varied phrasing until the behaviour is consistently correct.
+
 ### How to Write Test Messages
 
 Messages in the test chat are sent **from the client's perspective** (`message_sender: "customer"`). The agent acts as a real client in a real scenario, sending messages one at a time exactly as a user would.
@@ -344,6 +346,8 @@ Tips:
 - Vary phrasing between runs — the bot must handle natural, imperfect language
 - Use `fake_channel` to simulate a specific channel type (e.g., `telegram_bot`, `whatsapp`, `amocrm`) when channel-specific behaviour matters
 - To test employee interception: send a message as `message_sender: "employee"` and verify the bot freezes
+
+**Check response style, not just correctness.** After verifying that the bot answers correctly, evaluate *how* it answers: is it polite, friendly, and natural? Does the tone match the expected style? A technically correct answer delivered in a cold or awkward way is still a problem that needs fixing in the Response Style section of the instruction.
 
 ### Diagnosing Issues
 
