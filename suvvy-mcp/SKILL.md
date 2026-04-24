@@ -535,3 +535,23 @@ When auditing a bot's prompt:
 | `title` and `title_for_search` mismatch — bot sees wrong description | Set `title_for_search` to an intent-based phrase the bot will recognize |
 | Creating bot from a platform template | Always create without a template (`template_code: "default"`, no `template_variable`) |
 | Expecting `test_llm_code` model to affect live dialogues | `test_llm_code` only applies in the test chat |
+
+## Reducing Dialogue Costs
+
+The platform is pay-as-you-go — cost per dialogue depends primarily on the number of tokens sent to the LLM. The main levers:
+
+**Choose the right model:**
+- Use a cheaper / smaller model (`llm_code`) unless the task genuinely requires a more powerful one
+
+**Reduce context size per turn:**
+- `history_type: last_messages` or `last_time` instead of `enabled` (full history) — the single biggest lever; full history grows unboundedly
+- `vector_search_return_top_n` — limit how many chunks Big Document search returns; fewer chunks = less context
+- Keep the system prompt concise — it is sent on every turn
+- Keep FAQ Document text concise — retrieved text is injected into the context on every retrieval
+
+**Reduce the number of LLM calls:**
+- `merge_message_time_seconds` — wait N seconds after a client message to collect follow-up messages before responding; avoids one LLM call per rapid-fire message
+- `work_days` — if the bot only needs to be active during business hours, disable it outside those hours; no client messages processed = no cost
+
+**Reduce unnecessary reasoning:**
+- `llm_settings.reasoning_effort: minimal` or `low` — for models that support extended thinking, lower effort = fewer reasoning tokens
