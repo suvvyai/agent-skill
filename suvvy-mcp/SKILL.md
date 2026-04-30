@@ -95,6 +95,19 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 **`refuse_on_call` / `refuse_if_called`** (on Custom Tools and FAQ Documents): bot skips the reply for the specific triggering message. Dialogue continues normally on subsequent messages. On FAQ Documents, setting an empty text body (`""`) achieves the same silent-retrieval effect.
 
+**Save function call history** (`save_function_messages`): controls whether tool call messages are included in the dialogue history sent to the LLM. Disabling reduces context size and lowers costs.
+
+**Employee interception conditions**: beyond the basic interception toggle, the bot can be configured to:
+- Not reply to the specific message that triggered the interception (without stopping the whole dialogue)
+- Ignore the first messages from the employee (avoid reacting to internal notes)
+- Specify phrases that will not trigger interception
+
+**Personal data masking** (`security_settings`): masks personal data (phone numbers, emails, etc.) in dialogue history before passing it to the LLM. Required for compliance with Russian Federal Law №152-ФЗ on personal data. Also controls whether media files are sent to the LLM and how long messages and dialogues are retained (configurable in days).
+
+**Channels**: communication surfaces connected to a bot. Available categories: CRM systems (amoCRM, Kommo, Bitrix24, RetailCRM, Omnidesk), Messengers (Telegram, WhatsApp, Wazzup), Social networks (VK, Instagram, Facebook), Website chats, Marketplaces, Helpdesk systems. Full list in the Channels tab of each bot.
+
+**Integrations**: pre-built connectors available in categories: Booking systems (YCLIENTS, ALTEGIO, MedFlex, SquareUp), Payment systems (YooKassa, Prodamus), Calendars (Google Calendar), Notifications (Telegram, MAX), CRM systems (AmoCRM, Kommo). Full list in the Integrations tab of each bot.
+
 ### Functions
 
 Every bot has a unified list of callable functions. The bot can call any function from this list in accordance with its instruction. Functions come from four sources:
@@ -107,6 +120,8 @@ Every bot has a unified list of callable functions. The bot can call any functio
 ### Knowledge Base
 
 Suvvy supports three knowledge base types that can run simultaneously on the same bot.
+
+**KB-level option — Keywords:** When enabled, specific keywords can be defined on the bot. If a client's message contains one of these keywords, the bot is required to call at least one knowledge base function before responding. Use to ensure the bot always consults the KB for certain topics rather than answering from the instruction alone.
 
 #### FAQ Documents (Direct Questions)
 
@@ -243,6 +258,18 @@ A Follow-Up is a message scheduled to be sent to a client at a future time. It i
 
 There are multiple follow-up types; full details and parameters are in the MCP tool schema.
 
+### Scheduled Event Groups (Bot-Level Follow-Ups)
+
+Scheduled Event Groups are bot-level collections of Follow-Up messages that fire automatically when a client does not respond after a bot or employee message. They are configured once on the bot and apply globally — unlike FAQ Document Follow-Ups, which are tied to a specific document's retrieval.
+
+**Two trigger types:**
+- **After agent message** — fires when the client doesn't reply to the bot
+- **After employee message** — fires when the client doesn't reply to a human employee
+
+**How groups work:** Each group contains one or more Follow-Up messages with timing and content settings. Multiple groups can be created and assigned to each trigger type. A "Расписание" (Schedule) tab controls when follow-ups are allowed to send (e.g., only during working hours). The "Все группы" tab lists all groups across the bot.
+
+**Key difference from document-level Follow-Ups:** Document Follow-Ups fire on retrieval of a specific FAQ or Big Document. Scheduled Event Groups fire on the entire conversation's inactivity pattern, regardless of which documents were retrieved.
+
 ### Custom Variables (Dialog Fields)
 
 Custom Variables are named fields that persist for the entire duration of a dialog. They are separate from the step-level variables used to pass data between Custom Tool steps.
@@ -260,6 +287,19 @@ Memory works the same as Custom Variables but without a predefined list of field
 - Use when the set of fields cannot be known in advance or varies per conversation
 - The bot manages its own memory: creates, reads, and updates keys as needed
 - Optional: `clear_with_context` — clears memory entries when the dialogue context is reset
+
+### Standard Functions
+
+Standard Functions are built-in callable functions that can be enabled on any bot without creating a Custom Tool. Once enabled, the bot can call them directly based on the conversation context.
+
+| Function | What it does |
+|---|---|
+| **Stop dialogue** | Bot stops responding in this dialogue; a human employee takes over |
+| **Ignore message** | Bot ignores the triggering message and sends no reply |
+| **Set dialogue tag** | Bot tags the dialogue with a label (for filtering/reporting) |
+| **Call manager** | Sends a notification to the manager's Telegram when called |
+
+Enable/disable each in **Доп. настройки → Стандартные функции**. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
 
 ### Common Bot Archetypes
 
@@ -496,6 +536,8 @@ Tips:
 - Vary phrasing between runs — the bot must handle natural, imperfect language
 - Use `fake_channel` to simulate a specific channel type (e.g., `telegram_bot`, `whatsapp`, `amocrm`) when channel-specific behaviour matters
 - To test employee interception: send a message as `message_sender: "employee"` and verify the bot freezes
+- **"Добавить в чёрный список"** — available in the test chat panel; blocks the client from the bot
+- **"Поделиться"** — exports the test chat dialogue as a shareable web page (useful for sharing a test session with a client or colleague)
 
 **Check response style, not just correctness.** After verifying that the bot answers correctly, evaluate *how* it answers: is it polite, friendly, and natural? Does the tone match the expected style? A technically correct answer delivered in a cold or awkward way is still a problem that needs fixing in the Response Style section of the instruction.
 
@@ -538,20 +580,42 @@ When auditing a bot's prompt:
 
 ## Reducing Dialogue Costs
 
-The platform is pay-as-you-go — cost per dialogue depends primarily on the number of tokens sent to the LLM. The main levers:
+The platform is pay-as-you-go — cost per dialogue depends primarily on the number of tokens sent to the LLM on each turn. There are two root causes of expensive dialogues, and one additional common inefficiency.
 
-**Choose the right model:**
-- Use a cheaper / smaller model (`llm_code`) unless the task genuinely requires a more powerful one
+**Root cause 1: Instruction too long**
 
-**Reduce context size per turn:**
-- `history_type: last_messages` or `last_time` instead of `enabled` (full history) — the single biggest lever; full history grows unboundedly
-- `vector_search_return_top_n` — limit how many chunks Big Document search returns; fewer chunks = less context
-- Keep the system prompt concise — it is sent on every turn
-- Keep FAQ Document text concise — retrieved text is injected into the context on every retrieval
+The system prompt is sent to the LLM on every single turn. A bloated instruction multiplies costs across every message in every dialogue.
 
-**Reduce the number of LLM calls:**
-- `merge_message_time_seconds` — wait N seconds after a client message to collect follow-up messages before responding; avoids one LLM call per rapid-fire message
-- `work_days` — if the bot only needs to be active during business hours, disable it outside those hours; no client messages processed = no cost
+- Move factual content out of the instruction and into FAQ Documents — the bot retrieves them only when needed, not on every turn
+- Keep the instruction focused on behaviour and logic, not reference data
 
-**Reduce unnecessary reasoning:**
-- `llm_settings.reasoning_effort: minimal` or `low` — for models that support extended thinking, lower effort = fewer reasoning tokens
+**Root cause 2: Dialogue history too long**
+
+As a dialogue grows, more and more message history is sent to the LLM each turn. Long dialogues become exponentially expensive.
+
+- Use `history_type: last_messages` or `last_time` instead of `enabled` (full history) to cap the context window at an appropriate size
+- Save important information gathered during the dialogue into Custom Variables or Memory (`set_memory`) instead of relying on the bot to "remember" it from a long history — this allows using a shorter context window without losing critical facts
+
+**Common inefficiency: excessive knowledge base calls**
+
+If the bot calls many FAQ Documents in sequence (e.g., 10 files one after another), each call includes the full list of all available file titles in the context. With a large knowledge base, this list itself consumes significant tokens and repeats on every call.
+
+Fix: write the instruction so the bot retrieves the right file on the first try. Clear, distinct `title_for_search` values and explicit trigger conditions in the instruction are the main tools for this.
+
+**FAQ Documents that are too long**
+
+Retrieved FAQ Document text is injected into the context in full. A very long document adds significant tokens on every retrieval. Keep FAQ Document text concise and to the point — split oversized documents into smaller, more focused ones if needed.
+
+**Tables returning too much irrelevant data**
+
+When a bot queries a Table, the result is returned in full. If the table is large and the query is broad, the bot receives many irrelevant rows — wasting tokens and increasing the chance of a wrong answer.
+
+Two fixes:
+- **Hint the bot in the instruction** to always add a `WHERE` clause that filters by the relevant column (e.g., by product ID, category, or date). The bot writes the SQL itself but applies the filter because the instruction tells it to.
+- **Move the table call into a Custom Tool** (`query_table` step) with a pre-written SQL query that already includes the necessary filters. The bot then just calls the tool by name — it never writes SQL, and the result is already scoped to what's relevant.
+
+**Other levers:**
+- Use a cheaper model (`llm_code`) when the task doesn't require a powerful one
+- `llm_settings.reasoning_effort: minimal` or `low` — fewer reasoning tokens for models that support extended thinking
+- `merge_message_time_seconds` — merge rapid-fire client messages before responding; avoids one LLM call per message burst
+- `work_days` — bot is silent outside working hours; no messages processed = no cost
