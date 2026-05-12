@@ -45,6 +45,9 @@ This applies to building a new bot, adding a major feature, restructuring the kn
 | Instruction template engine | **Templates** | `use_liquid` | Шаблоны в инструкции | — |
 | Dialog-scoped named field | **Custom Variable** | `custom_variable` | Пользовательская переменная, Поле диалога | Dialog field |
 | Bot-defined dialog memory | **Memory** | — | Память | Dynamic Variables |
+| KB analytics label | **Knowledge Tag** | `knowledge_tag` | Тег | Tag |
+| File attached to FAQ Document for delivery | **File to Send** | `file_to_send` | Файл для отправки | — |
+| Image attached to FAQ Document for visual search | **Image** | `image` | Картинка | — |
 
 > In MCP tool names and API parameters, always use the code/MCP term (e.g., `instance_id`, `faq_document`).
 
@@ -69,6 +72,7 @@ All bot settings are updated via `update_instance_settings`. The most important 
 - `llm_code` — model used in production; `test_llm_code` — model used only in the test chat (does not affect live dialogues)
 - `llm_settings.reasoning_effort` — reasoning depth: `minimal` / `low` / `medium` / `high`
 - `llm_settings.web_search` — enable internet search (configure `country` and optionally `allowed_domains`)
+- Use `get_llm_list` to fetch the current list of models available on the platform before setting `llm_code` or `test_llm_code`.
 
 **Dialogue history** (`history_type`):
 - `enabled` — full history | `disabled` — no history | `last_time` — last N minutes | `last_messages` — last N messages
@@ -141,6 +145,23 @@ Suvvy supports three knowledge base types that can run simultaneously on the sam
   - Umnico: switch status; Usedesk: switch agent
   - Platform-level: trigger Follow-Up groups, send files to the client, stop dialogue, change LLM temperature
 
+**Files to Send** — files attached to an FAQ Document that are automatically delivered to the client when the bot retrieves that document. Managed separately from the document text and linked to it afterwards.
+
+**Example:** FAQ Document "Work Samples" with body text: "Images of our work samples will be sent. Tell the client you have sent them." — images are attached as Files to Send. When the bot calls this document, the images are sent to the client chat alongside the bot's reply.
+
+Use `upload_file_to_send` / `upload_files_to_send` to upload, `get_files_to_send` to list, `update_file_to_send` / `replace_file_to_send` / `delete_file_to_send` to manage.
+
+**Images (visual search)** — images attached to an FAQ Document for visual matching. These are unrelated to image generation or editing in Custom Tool steps. When a client sends an image to the chat, the platform searches for FAQ Documents that have *similar* images attached. If a match is found, those FAQ Documents are automatically added to the bot's context for that turn.
+
+Use `upload_images`, `get_images_metas`, `get_image_model_list`, `delete_image` to manage images.
+
+**Importing FAQ Documents from files:**
+
+- `create_faq_documents_from_xlsx` — bulk import from an Excel file. Required format: first row is column headers (ignored); from row 2: column 1 = FAQ Document title, column 2 = text body.
+- `import_faq_documents` — import one or several FAQ Documents from text-format files: DOCX, PDF, TXT, MD, HTML. Each file is converted to text and its content becomes the document body. See the MCP tool schema for format details and required parameters.
+
+Both import tools require a file URL obtained via the presigned upload workflow (see **Uploading Files** section).
+
 #### Big Documents
 
 - Each file has a title and configurable **chunking settings**
@@ -149,6 +170,17 @@ Suvvy supports three knowledge base types that can run simultaneously on the sam
 - Big Documents are usually not written from scratch — they are uploaded from existing files (DOCX, PDF, and other formats; supported formats are listed in the relevant MCP tool schema). This makes it easy to give a bot access to internal documentation, manuals, books, or any structured knowledge source without manual rewriting.
 - Best for: large unstructured content — internal docs, product manuals, policy documents, long-form articles
 - **Search function:** `search_in_knowledge_base("natural language query")`
+- **Chunks:** A Big Document is split into chunks; semantic search runs against those chunks. Use `get_big_document_chunks` to inspect how a document was chunked and `update_big_document_chunks` to adjust chunking settings. Useful when you need to verify or change how the document was split before re-embedding.
+- **Manual query:** Use `manual_query_big_documents` to test semantic search against a bot's Big Documents directly — without going through the test chat. Pass a natural-language query and inspect which chunks are returned. Useful for diagnosing retrieval quality.
+- **Import** requires a file URL obtained via the presigned upload workflow (see **Uploading Files** section).
+
+#### Knowledge Tags
+
+Knowledge Tags are labels that can be attached to **FAQ Documents** and **Big Documents**. When the bot retrieves a tagged document during a dialogue, those tags are automatically associated with that dialogue. Tags are used purely for analytics: they let you track what topics clients actually asked about.
+
+**Example:** Create a tag "Interested in pricing" and attach it to the "Prices" FAQ Document. After a month you can see in analytics how many dialogues had price-interested clients vs. empty dialogues with no retrieved documents.
+
+Tags are configured and created independently, then linked to FAQ Documents and Big Documents. Use `create_knowledge_tag`, `get_knowledge_tags`, `update_knowledge_tag`, `delete_knowledge_tag`.
 
 #### Tables
 
@@ -231,6 +263,18 @@ When writing a bot's system prompt, treat integration tools the same as custom t
 A Dialog is the chat session between a bot and a client. When a client writes to a connected channel (Telegram bot, amoCRM, a website widget, etc.), a dialog is created. Client messages arrive in the dialog, the bot responds (calling functions as needed), and its replies are sent back to the client through the channel.
 
 The active bot in a dialog can be switched mid-conversation via a Custom Tool step. After the switch, a different bot takes over in the same dialog — the new bot does not need to have that channel connected.
+
+**Pause / Resume bot in a dialogue** — use `pause_or_resume_instance_in_dialogue_by_id` to manually pause or resume the bot in a specific live dialogue. Useful when monitoring real conversations: pause the bot so a human can take over, or resume a bot that was interrupted.
+
+**Answer as employee** — use `answer_in_dialogue_as_an_employee` to send a message into a live dialogue as an employee. The end client sees it as a normal message. Use for manual interventions in real conversations.
+
+**Clear dialogue context** — use `clear_dialogue_context_by_id` to reset the context of a specific dialogue. Works the same as `reset_latest_or_create_new_test_dialogue` but applies to **real dialogues**, not just the test chat.
+
+**Search dialogues** — use `search_dialogues_by_message_filter` to find real dialogues by message text and other filters.
+
+**Dialogue ratings** — when a bot uses the `request_dialogue_rate` Custom Tool step, it generates a rating link. The client opens the link and rates the conversation (👍/👎 or 1–5 stars). Use `get_dialogue_rate_list` to fetch all ratings for a bot, or `get_dialogue_rate_list_by_dialogue_id` for a specific dialogue. Typically used at the end of conversations to measure satisfaction. Users can view rating statistics in their dashboard.
+
+**Active Follow-Ups in a dialogue** — use `get_active_reminder_list_by_dialogue_id` and `get_scheduled_messages_for_dialogue_by_dialogue_id` to inspect pending Follow-Ups for a specific dialogue. Use `cancel_reminders_in_dialogue` to cancel them.
 
 ### Subordinate Bots
 
@@ -538,6 +582,7 @@ Tips:
 - To test employee interception: send a message as `message_sender: "employee"` and verify the bot freezes
 - **"Добавить в чёрный список"** — available in the test chat panel; blocks the client from the bot
 - **"Поделиться"** — exports the test chat dialogue as a shareable web page (useful for sharing a test session with a client or colleague)
+- **Mark message as debug** — use `mark_message_as_debug_in_test_dialogue` to "disable" a specific message in the test chat. The bot stops seeing that message in its context. Useful when iterating on a long test session: if the bot answered incorrectly on message 10 out of 10, mark that message as debug instead of resetting the entire chat and replaying from scratch. Use `user_query_table` to manually run SQL queries against a Table directly — useful for verifying that a query returns the expected rows before wiring it into a Custom Tool.
 
 **Check response style, not just correctness.** After verifying that the bot answers correctly, evaluate *how* it answers: is it polite, friendly, and natural? Does the tone match the expected style? A technically correct answer delivered in a cold or awkward way is still a problem that needs fixing in the Response Style section of the instruction.
 
@@ -619,3 +664,36 @@ Two fixes:
 - `llm_settings.reasoning_effort: minimal` or `low` — fewer reasoning tokens for models that support extended thinking
 - `merge_message_time_seconds` — merge rapid-fire client messages before responding; avoids one LLM call per message burst
 - `work_days` — bot is silent outside working hours; no messages processed = no cost
+
+**Pricing reference:** Use `get_balance_token_rates` to get the current token pricing for each model. Use this when the user asks about the cost of a dialogue or wants to estimate monthly spending.
+
+## Uploading Files
+
+The MCP server cannot upload files directly. Any operation that requires a file (importing Big Documents, FAQ Documents, Tables, uploading Files to Send, Images, or attachments in the test chat) uses a two-step presigned upload workflow:
+
+**Step 1 — Get a presigned URL:**
+
+Call `get_presigned_upload_url` with the filename. The response contains:
+- `upload_url` — the POST endpoint
+- `upload_fields` — a dict of required form fields (key, policy, signature, etc.)
+- `file_url` — the URL to pass to the platform after upload
+- `expires_in` — URL validity in seconds (1 hour)
+
+**Step 2 — Upload the file via `curl`:**
+
+```bash
+curl -X POST "UPLOAD_URL" \
+  -F "key=VALUE" \
+  -F "AWSAccessKeyId=VALUE" \
+  -F "policy=VALUE" \
+  -F "signature=VALUE" \
+  -F "file=@/path/to/local/file"
+```
+
+Include **all** fields from `upload_fields` as `-F` flags, then add the file last as `file=@/path`. A successful upload returns HTTP 204.
+
+**Step 3 — Pass `file_url` to the platform:**
+
+After the upload, use `file_url` from Step 1 in the target MCP tool (e.g., `import_big_documents`, `create_faq_documents_from_xlsx`, `import_table`, `upload_file_to_send`, `upload_images`, etc.).
+
+> The file must exist as a local path accessible to the shell. If the user provides a URL (not a local file), download it first with `curl -o /tmp/filename URL` before uploading.
