@@ -160,7 +160,9 @@ Use `upload_images`, `get_images_metas`, `get_image_model_list`, `delete_image` 
 - `create_faq_documents_from_xlsx` — bulk import from an Excel file. Required format: first row is column headers (ignored); from row 2: column 1 = FAQ Document title, column 2 = text body.
 - `import_faq_documents` — import one or several FAQ Documents from text-format files: DOCX, PDF, TXT, MD, HTML. Each file is converted to text and its content becomes the document body. See the MCP tool schema for format details and required parameters.
 
-Both import tools require a file URL obtained via the presigned upload workflow (see **Uploading Files** section).
+When importing via `import_faq_documents`, the platform automatically generates `title_for_search` from the filename. Review and correct it after import if needed — auto-generated values may not accurately reflect the user intent the document should match.
+
+Both import tools require a file URL obtained via the presigned upload workflow (see **Uploading Files** section). Temporary uploaded files and their URLs are deleted from storage after **48 hours**.
 
 #### Big Documents
 
