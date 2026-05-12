@@ -1,0 +1,21 @@
+{
+  "name": "suvvy-plugins",
+  "description": "Official Suvvy plugins for Claude Code",
+  "owner": {
+    "name": "Suvvy",
+    "email": "info@suvvy.ai"
+  },
+  "plugins": [
+    {
+      "name": "suvvy-mcp",
+      "source": "./plugins/suvvy-mcp",
+      "description": "Suvvy bot platform integration — manage bots, knowledge bases, and channels via MCP",
+      "author": {
+        "name": "Suvvy",
+        "url": "https://suvvy.ai"
+      },
+      "homepage": "https://docs.suvvy.ai",
+      "keywords": ["suvvy", "chatbot", "llm", "mcp"]
+    }
+  ]
+}

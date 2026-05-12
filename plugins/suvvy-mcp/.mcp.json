@@ -1,0 +1,6 @@
+{
+  "suvvy": {
+    "type": "http",
+    "url": "https://api.suvvy.ai/mcp"
+  }
+}

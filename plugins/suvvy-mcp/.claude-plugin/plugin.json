@@ -1,0 +1,13 @@
+{
+  "name": "suvvy-mcp",
+  "description": "Suvvy bot platform integration — create and configure bots, knowledge bases, channels, and custom tools via the Suvvy MCP server.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Suvvy",
+    "url": "https://suvvy.ai"
+  },
+  "homepage": "https://suvvy.ai",
+  "keywords": ["suvvy", "chatbot", "llm", "mcp"],
+  "skills": "./skills",
+  "mcpServers": "./.mcp.json"
+}
