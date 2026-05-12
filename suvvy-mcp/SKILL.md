@@ -112,6 +112,8 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 **Integrations**: pre-built connectors available in categories: Booking systems (YCLIENTS, ALTEGIO, MedFlex, SquareUp), Payment systems (YooKassa, Prodamus), Calendars (Google Calendar), Notifications (Telegram, MAX), CRM systems (AmoCRM, Kommo). Full list in the Integrations tab of each bot.
 
+> **Limitation:** Channels and Integrations cannot be configured via MCP. If they are needed, the user must set them up manually in their Suvvy dashboard (личный кабинет).
+
 ### Functions
 
 Every bot has a unified list of callable functions. The bot can call any function from this list in accordance with its instruction. Functions come from four sources:
