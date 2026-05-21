@@ -1,0 +1,29 @@
+{
+  "name": "@suvvy/mcp",
+  "version": "1.0.0",
+  "description": "Suvvy MCP server installer for Claude Code, Cursor, Windsurf, and other AI assistants",
+  "bin": {
+    "suvvy-mcp": "./bin/install.js"
+  },
+  "files": [
+    "bin",
+    "skills",
+    ".mcp.json",
+    ".claude-plugin",
+    "gemini-extension.json"
+  ],
+  "keywords": ["suvvy", "mcp", "claude", "llm", "chatbot", "ai"],
+  "author": "Suvvy <info@suvvy.ai> (https://suvvy.ai)",
+  "license": "MIT",
+  "homepage": "https://docs.suvvy.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suvvy-ai/llm-skill"
+  },
+  "bugs": {
+    "url": "https://github.com/suvvy-ai/llm-skill/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

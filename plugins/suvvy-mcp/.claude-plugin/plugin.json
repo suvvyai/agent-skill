@@ -6,8 +6,6 @@
     "name": "Suvvy",
     "url": "https://suvvy.ai"
   },
-  "homepage": "https://suvvy.ai",
-  "keywords": ["suvvy", "chatbot", "llm", "mcp"],
-  "skills": "./skills",
-  "mcpServers": "./.mcp.json"
+  "homepage": "https://docs.suvvy.ai",
+  "keywords": ["suvvy", "chatbot", "llm", "mcp"]
 }

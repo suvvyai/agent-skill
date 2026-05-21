@@ -1,0 +1,9 @@
+{
+  "name": "suvvy-mcp",
+  "version": "1.0.0",
+  "mcpServers": {
+    "suvvy": {
+      "httpUrl": "https://api.suvvy.ai/mcp"
+    }
+  }
+}
