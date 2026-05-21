@@ -108,11 +108,27 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 **Personal data masking** (`security_settings`): masks personal data (phone numbers, emails, etc.) in dialogue history before passing it to the LLM. Required for compliance with Russian Federal Law №152-ФЗ on personal data. Also controls whether media files are sent to the LLM and how long messages and dialogues are retained (configurable in days).
 
-**Channels**: communication surfaces connected to a bot. Available categories: CRM systems (amoCRM, Kommo, Bitrix24, RetailCRM, Omnidesk), Messengers (Telegram, WhatsApp, Wazzup), Social networks (VK, Instagram, Facebook), Website chats, Marketplaces, Helpdesk systems. Full list in the Channels tab of each bot.
+**Temperature / Creativity** (`llm_settings.temperature_mode`): controls response randomness — `stability` (0, most deterministic), `balanced` (10), `creative` (20, most varied). Low values produce consistent, factual answers; higher values produce more varied phrasing.
 
-**Integrations**: pre-built connectors available in categories: Booking systems (YCLIENTS, ALTEGIO, MedFlex, SquareUp), Payment systems (YooKassa, Prodamus), Calendars (Google Calendar), Notifications (Telegram, MAX), CRM systems (AmoCRM, Kommo). Full list in the Integrations tab of each bot.
+**Max parallel functions** (`llm_settings.max_parallel_tool_calls`): how many functions the bot can call simultaneously per turn (default: 10). Note: the absolute limit is **10 function calls per single dialogue turn** — scenarios requiring more will fail with an error.
+
+**Messages before / after response** (`before_answer_text` / `after_answer_text`): static text automatically prepended or appended to every bot reply. Use for disclaimers, footers, or branding lines.
+
+**Word replacements** (`replace_settings`): find/replace pairs applied to all bot responses. Supports partial-word matching. Use to standardize terminology or suppress unwanted phrases.
+
+**Spam protection** (`rate_limit_settings`): cap the number of messages a client can send per dialogue and/or the maximum cost per dialogue. When either limit is exceeded the bot stops responding.
+
+**Fallback message** (`fallback_message`): static reply sent to the client when the bot cannot process a message (e.g., unsupported file type received).
+
+**Notifications** (`notify_settings`): configure Telegram or Messenger MAX alerts for platform events — low balance, FAQ Document triggers, channel status changes, errors. Template variables: `{bot}` (bot name), `{source}` (client identifier), `{document}` (triggered document name), `{suvvy_chat}` (dashboard link to dialogue), `{summary}` (AI summary; requires an LLM prompt describing what to extract). Configure in the Оповещения tab; enable/disable per-bot.
+
+**Channels**: communication surfaces connected to a bot. Available categories: CRM systems (amoCRM, Kommo, Bitrix24, RetailCRM, GetCourse), Messengers (Telegram, WhatsApp, Max), Social networks (VK, Instagram, Facebook), Website chats (Suvvy Widget, Jivo), Marketplaces (Wildberries, OZON, Яндекс.Маркет, Avito), Helpdesk systems (UseDesk, PlanFix, Omnidesk, HelpDeskEddy), Omnichannel platforms (Wazzup, Umnico), Personal channel (API). Full list in the Channels tab of each bot.
+
+**Integrations**: pre-built connectors available in categories: Booking systems (YCLIENTS, ALTEGIO, MedFlex), Payment systems (YooKassa, Prodamus), Calendars (Google Calendar), Notifications (Telegram, MAX), CRM systems (AmoCRM, Kommo). Full list in the Integrations tab of each bot.
 
 > **Limitation:** Channels and Integrations cannot be configured via MCP. If they are needed, the user must set them up manually in their Suvvy dashboard (личный кабинет).
+
+**Profile switching (agency/integrator use)** — if managing multiple clients' bots from one account, use `switch_to_client_profile(profile_id)` to switch the MCP session to a client's workspace, and `switch_to_self_profile` to return. Use `get_info_about_self_user` to check the currently active profile.
 
 ### Functions
 
@@ -122,6 +138,8 @@ Every bot has a unified list of callable functions. The bot can call any functio
 - **Custom Tools** — manually configured actions
 - **Channels** — some channel integrations expose their own functions
 - **Integrations** — pre-built connectors add their own functions (CRM, booking, etc.)
+
+Use `get_instance_functions` to retrieve the complete list of all callable functions currently available to a specific bot — useful when writing or auditing the instruction to ensure all referenced functions actually exist.
 
 ### Knowledge Base
 
@@ -166,6 +184,8 @@ When importing via `import_faq_documents`, the platform automatically generates 
 
 Both import tools require a file URL obtained via the presigned upload workflow (see **Uploading Files** section). Temporary uploaded files and their URLs are deleted from storage after **48 hours**.
 
+FAQ Document management tools: `create_faq_document_list` (bulk-create multiple documents in one call — faster than sequential `create_faq_document`); `get_faq_document`, `get_instance_faq_documents` (retrieve); `update_faq_document`, `delete_faq_documents` (modify/remove).
+
 #### Big Documents
 
 - Each file has a title and configurable **chunking settings**
@@ -178,6 +198,8 @@ Both import tools require a file URL obtained via the presigned upload workflow 
 - **Manual query:** Use `manual_query_big_documents` to test semantic search against a bot's Big Documents directly — without going through the test chat. Pass a natural-language query and inspect which chunks are returned. Useful for diagnosing retrieval quality.
 - **Import** requires a file URL obtained via the presigned upload workflow (see **Uploading Files** section).
 
+Big Document management tools: `get_big_document`, `get_instance_big_documents` (retrieve); `update_big_document`, `replace_big_document_text` (update content without re-uploading a file); `delete_big_documents` (remove); `import_big_documents_other` (import from additional formats not covered by the standard import tool).
+
 #### Knowledge Tags
 
 Knowledge Tags are labels that can be attached to **FAQ Documents** and **Big Documents**. When the bot retrieves a tagged document during a dialogue, those tags are automatically associated with that dialogue. Tags are used purely for analytics: they let you track what topics clients actually asked about.
@@ -188,11 +210,16 @@ Tags are configured and created independently, then linked to FAQ Documents and 
 
 #### Tables
 
-- Uploaded from CSV or XLSX files
+- Uploaded from CSV or XLSX files, or connected to a live **Google Sheets** document (auto-syncs)
 - The bot queries a table by writing a **SQL query** — the result is returned as structured data
 - By default each table gets its **own dedicated function** that the bot can call directly
 - Alternatively, the table's dedicated function can be disabled and the query embedded in a **Custom Tool** instead — in this case the Custom Tool executes a pre-configured SQL query and the bot simply calls the action without writing SQL itself
 - Best for: structured data — price lists, product catalogs, schedules, any tabular reference data
+- **Write operations** (Google Sheets only) — when enabled, the bot can write back to the table:
+  - Append new rows: `customer_data_append_table` — bot collects fields from the conversation and adds a row
+  - Edit existing rows: `customer_data_edit_table` — bot first finds the target row by any column, then modifies it; requires "Get data" flag also enabled
+
+Table MCP tools: `get_table_list`, `get_table`, `get_table_columns`, `get_table_head`, `get_table_types` (inspect); `import_table`, `edit_table`, `replace_table` (modify content); `delete_table`, `delete_table_cache` (manage — `delete_table_cache` forces a re-sync for Google Sheets tables).
 
 ### Custom Tools
 
@@ -245,6 +272,19 @@ Custom Tools are a powerful way to extend a bot's capabilities with arbitrary lo
 
 Auto-triggered tools run invisibly in the background with predefined argument values baked in.
 
+**Additional trigger conditions** — beyond the event type, auto-triggered tools support filtering conditions that must be satisfied before the tool fires. Types:
+- **Variable** — a Custom Variable has a specific value
+- **KB file called** — a specific FAQ Document was retrieved this turn
+- **Function called** — a specific function was invoked this turn
+- **Time window** — current time falls within a configured range
+- **Source channel** — message came from a specific channel (e.g., `telegram_bot`, `avito`)
+- **Phrase in message or response** — message contains specified keywords
+- **LLM instruction** — custom natural-language condition evaluated by the LLM
+- **Content type** — message is a file, audio, image, or text
+- **Message count** — dialogue has more than N messages
+
+Conditions combine with **AND** (all must be met) or **OR** (at least one must be met). Comparisons: equals, not equals, greater/less than, contains, does not contain.
+
 **`refuse_on_call`** — bot skips sending a reply to the specific message that triggered this tool. Subsequent messages are handled normally. Use when the tool itself sends the response via a `send_message` step.
 
 **`stop_dialogue_on_call`** — bot stops responding in this dialogue entirely after the tool runs. The dialogue stays open for a human employee to take over.
@@ -276,6 +316,8 @@ The active bot in a dialog can be switched mid-conversation via a Custom Tool st
 
 **Search dialogues** — use `search_dialogues_by_message_filter` to find real dialogues by message text and other filters.
 
+**Reading dialogue data** — `get_dialogue_list` lists all real dialogues for a bot (supports filters); `get_dialogue_by_id` retrieves a specific dialogue; `get_dialogue_messages_by_dialogue_id` fetches the full message history of a dialogue.
+
 **Dialogue ratings** — when a bot uses the `request_dialogue_rate` Custom Tool step, it generates a rating link. The client opens the link and rates the conversation (👍/👎 or 1–5 stars). Use `get_dialogue_rate_list` to fetch all ratings for a bot, or `get_dialogue_rate_list_by_dialogue_id` for a specific dialogue. Typically used at the end of conversations to measure satisfaction. Users can view rating statistics in their dashboard.
 
 **Active Follow-Ups in a dialogue** — use `get_active_reminder_list_by_dialogue_id` and `get_scheduled_messages_for_dialogue_by_dialogue_id` to inspect pending Follow-Ups for a specific dialogue. Use `cancel_reminders_in_dialogue` to cancel them.
@@ -304,7 +346,29 @@ A Follow-Up is a message scheduled to be sent to a client at a future time. It i
 
 **Auto-cancellation:** A follow-up is automatically cancelled if the client sends any message before it fires.
 
-There are multiple follow-up types; full details and parameters are in the MCP tool schema.
+**Follow-up message types:**
+- **Fixed text** — a static predefined message
+- **Bot-generated** — the bot writes the message based on an additional instruction
+- **LLM-generated** — generated directly by the LLM
+- **KB file call** — retrieves and sends an FAQ Document
+- **Action call** — triggers an auto-trigger Custom Tool
+
+**LLM condition** — an optional natural-language condition evaluated before sending; the follow-up only fires if the condition is met (e.g., "only if the client hasn't replied yet"). Use to skip irrelevant reminders.
+
+**Chain follow-ups** — multiple entries with different timings create a drip sequence. Each step's LLM condition is evaluated independently.
+
+### Dynamic Follow-ups
+
+Dynamic Follow-ups are follow-ups where the send time is calculated **relative to a specific event date** extracted from the conversation — not a fixed interval from the triggering action.
+
+**Example:** A client books an appointment for Friday at 14:00. Dynamic follow-ups are configured as "1 day before" and "1 hour before" — both calculated from the booked appointment date extracted during the conversation.
+
+**Key differences from regular Follow-Ups:**
+- Timing anchors to a named date/time value (passed as a Custom Tool argument)
+- Multiple reminders can reference the same event at different relative offsets
+- Message types are the same: fixed text, bot-generated, LLM-generated, KB file call, action call
+
+Use dynamic follow-ups for appointments, deadlines, subscription renewals — any scenario where reminder timing must align with a client-specific date.
 
 ### Scheduled Event Groups (Bot-Level Follow-Ups)
 
@@ -359,6 +423,55 @@ Suvvy bots are used in many roles — the platform imposes no restrictions on us
 | **Admin / Receptionist** | Books appointments, checks availability, manages schedules |
 
 Any role that involves text-based client interaction is a valid use case.
+
+### Voice Agent
+
+Suvvy supports a **Voice Agent** mode for phone call interactions. The bot receives audio, converts speech to text (STT), processes the conversation, and responds via synthesized speech (TTS).
+
+**STT settings:**
+- Model and language selection
+- Custom keywords for improved domain-specific recognition
+- `voice_sensitivity` — voice detection threshold
+- `min_duration` — minimum audio length to register as speech
+- `end_pause_duration` — silence duration that marks end of a phrase
+
+**TTS settings:**
+- Voice selection (multiple options)
+- `speed` — speech rate
+- `stability` — consistency vs. expressiveness balance
+- `expressiveness` — liveliness level
+- `similarity` — closeness to the reference voice sample
+
+**Call settings:**
+- Welcome message played at call start
+- Background audio (ambient sound, adjustable volume)
+- `end_on_silence` — auto-hangup after inactivity period
+- `max_call_duration` — maximum call length in minutes
+
+**Setup:** Configure in the **Голос** tab of the Instruction screen. Requires a phone number, a SIP address (obtained from Suvvy support), and configuration with a telephony provider.
+
+**Cost:** ~30 rubles per minute.
+
+**Writing instructions for voice:** use short sentences, avoid markdown formatting, avoid bullet lists and headers — the bot will speak the text verbatim. When voice mode is enabled, the platform automatically adapts the instruction style section for audio delivery.
+
+### Broadcasts (Рассылки)
+
+Broadcasts send outbound messages to existing dialogue participants based on filters. They operate through channels already connected to the bot.
+
+**Audience filters:**
+- Last message time window (e.g., clients active in the last 30 days)
+- Standard variables, channel variables, or Custom Variable values
+- Specific channel (e.g., WhatsApp only)
+- Presence of dialogue tags (`#TAG`)
+
+**Send parameters:**
+- Scheduled date and time
+- Random delay range between sends (to avoid spam detection by messaging platforms)
+- Message content: manual text or LLM-generated
+
+**Preview:** before confirming, the platform shows the count of matching dialogues and lets you review the target list.
+
+> Broadcasts are **not configurable via MCP**. Set them up in the Suvvy dashboard (Рассылки tab).
 
 ## Writing Bot System Prompts
 
@@ -547,6 +660,14 @@ Use a Subordinate Bot when a task is complex enough to benefit from a dedicated 
 
 A good starting point is to create the bot (`create_instance`, always without a template), write a first version of the system prompt, and create the initial FAQ Documents for the most common intents. That's enough to run the first test. From there, the process is iterative — add Custom Tools, Custom Variables, Memory, adjust bot settings, and keep testing.
 
+**Auto-generation (dashboard only):** the platform can generate a draft instruction and/or FAQ Documents from a text description or website URL. Four modes:
+- Generate instruction from text description
+- Generate instruction + parse website URL
+- Generate instruction + KB (from website)
+- Generate KB only (add to existing bot)
+
+Use auto-generation for the initial draft, then always review and edit the result before testing. Quality depends on the input description.
+
 ### Test-Iterate Loop
 
 Every change to the bot must be followed by a test. This is the core working cycle:
@@ -557,8 +678,8 @@ Change something → Test → Identify issues → Fix → Reset test chat → Re
 
 **How to run a test session:**
 
-1. Get the test dialogue: `get_latest_test_dialogue_for_instance_by_instance_id` → save `dialogue_id`
-2. Reset for a clean session: `reset_latest_or_create_new_test_dialogue_for_instance_by`
+1. Get the current test dialogue: `get_latest_test_dialogue_for_instance_by_instance_id_api` → save `dialogue_id`
+2. Reset for a clean session: `get_new_test_dialogue_for_instance_by_instance_id` (creates a fresh test dialogue)
 3. Send client messages one at a time: `send_message_to_test_dialogue_by_id`
 4. Read the bot's responses and check for issues
 5. If issues found — fix in the bot config, then reset and re-run the scenario from step 2
@@ -602,6 +723,25 @@ Tips:
 | Bot ignores a restriction | Restriction buried under other content | Move critical restrictions to a dedicated, clearly labeled section |
 | Custom Tool not triggered | Trigger condition missing in instruction; wrong argument types | Add explicit instruction for when to call the tool; verify argument descriptions |
 | Function called but wrong result | Step logic or variable mapping incorrect | Inspect step variables and `parse_json_variables` in the webhook step |
+| Dialogue stops unexpectedly | Control phrase triggered, employee interception, or KB file with "stop dialogue" flag | Find the dialogue in history → Clear context; check `stop_dialogue_patterns` and FAQ Document event settings |
+| `bot_kicked_from_chat` error | Integration conflict (e.g., Bitrix24 excludes bot when a manager joins) | Check integration settings and Open Lines configuration in Bitrix24 |
+
+## Analytics
+
+The **Аналитика** tab in the dashboard tracks bot performance over configurable time periods:
+
+| Metric | Description |
+|---|---|
+| Dialogue count | Total conversations in the period |
+| Message breakdown | Total received / bot-handled / employee-handled |
+| Average dialogue cost | Cost in rubles/credits |
+| Automation rate | % of messages handled by bot without human |
+| Tag distribution | Which Knowledge Tags appeared and how often |
+| Function call counts | How often each function was called |
+
+Two views: **Dialogs** (aggregate summary) and **Dialog logs** (per-message detail for each dialogue).
+
+> Analytics are read-only and not accessible via MCP. Monitor via the Suvvy dashboard.
 
 ## Reviewing Existing System Prompts
 
@@ -626,6 +766,9 @@ When auditing a bot's prompt:
 | `title` and `title_for_search` mismatch — bot sees wrong description | Set `title_for_search` to an intent-based phrase the bot will recognize |
 | Creating bot from a platform template | Always create without a template (`template_code: "default"`, no `template_variable`) |
 | Expecting `test_llm_code` model to affect live dialogues | `test_llm_code` only applies in the test chat |
+| More than 10 function calls in a single dialogue turn | Simplify the scenario; delegate sub-tasks to Subordinate Bots |
+| Contradictory instructions → bot calls the same function twice | Audit instruction for conflicting conditions; ensure each trigger is unique |
+| Token overflow (context exceeds model limit) | Reduce `history_type` window, shorten instruction, split large FAQ Documents |
 
 ## Reducing Dialogue Costs
 
@@ -663,11 +806,14 @@ Two fixes:
 - **Hint the bot in the instruction** to always add a `WHERE` clause that filters by the relevant column (e.g., by product ID, category, or date). The bot writes the SQL itself but applies the filter because the instruction tells it to.
 - **Move the table call into a Custom Tool** (`query_table` step) with a pre-written SQL query that already includes the necessary filters. The bot then just calls the tool by name — it never writes SQL, and the result is already scoped to what's relevant.
 
+**Write instructions and KB in English** — English text is processed ~3–4× more efficiently by most LLMs compared to Russian (fewer tokens per word). For Russian-facing bots: write the instruction and FAQ Documents in English, but add "Respond in the user's language" to the instruction. This alone can significantly reduce per-dialogue cost.
+
 **Other levers:**
 - Use a cheaper model (`llm_code`) when the task doesn't require a powerful one
 - `llm_settings.reasoning_effort: minimal` or `low` — fewer reasoning tokens for models that support extended thinking
 - `merge_message_time_seconds` — merge rapid-fire client messages before responding; avoids one LLM call per message burst
 - `work_days` — bot is silent outside working hours; no messages processed = no cost
+- `save_function_messages: false` — exclude function call messages from dialogue history (reduces context size)
 
 **Pricing reference:** Use `get_balance_token_rates` to get the current token pricing for each model. Use this when the user asks about the cost of a dialogue or wants to estimate monthly spending.
 
