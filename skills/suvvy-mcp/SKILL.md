@@ -88,6 +88,10 @@ All bot settings are updated via `update_instance_settings`. The most important 
 - `if_not_found_in_knowledge_base` — first tries to match the image to an FAQ Document; if no match, a helper model describes the image and passes the text description to the bot; use for models without native vision support
 - `always` — always describe images with a helper model regardless of knowledge base match
 
+**Image description instruction** (`image_description_instruction`): custom instruction (up to 1024 chars) passed to the helper model when it describes a client's image. Use to focus on domain-specific attributes (e.g., "describe the product name and defect type").
+
+**Image search threshold** (`image_search_threshold`): similarity threshold (0–20) for visual search matching in FAQ Documents. Lower = more permissive matching; higher = stricter. Tune if the bot incorrectly matches or misses image-triggered FAQ Documents.
+
 **Structured answer** (`structured_answer`): when enabled in default mode (no custom JSON schema), the bot can send images and files by writing a direct URL in its response, and can split one response into multiple sequential messages. Custom schema mode makes the bot always return a raw JSON object.
 
 **Message patterns:**
@@ -110,9 +114,17 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 **Temperature / Creativity** (`llm_settings.temperature_mode`): controls response randomness — `stability` (0, most deterministic), `balanced` (10), `creative` (20, most varied). Low values produce consistent, factual answers; higher values produce more varied phrasing.
 
+**Verbosity** (`llm_settings.verbosity`): controls response length — `low`, `medium`, `high`. Use `low` for concise replies (support bots, marketplaces), `high` for detailed explanations.
+
 **Max parallel functions** (`llm_settings.max_parallel_tool_calls`): how many functions the bot can call simultaneously per turn (default: 10). Note: the absolute limit is **10 function calls per single dialogue turn** — scenarios requiring more will fail with an error.
 
+**Answer split** (`answer_split`): controls how the bot splits its response into multiple sequential messages. Split rules: `do_not_split`, `by_paragraphs`, `by_sentences`, `by_markdown_sections`, `by_markdown_sections_paragraphs` (default), and others. Also configure `chunk_size` (max tokens per chunk). Use with `structured_answer` enabled.
+
 **Messages before / after response** (`before_answer_text` / `after_answer_text`): static text automatically prepended or appended to every bot reply. Use for disclaimers, footers, or branding lines.
+
+**Starting messages** (`starting_message_list`): up to 10 suggestion buttons shown at the start of a new dialogue (each with `title` and `text`). When clicked, the button's text is sent as the client's first message. Useful for website widgets and Telegram bots.
+
+**Default LLM preset** (`set_default_llm`): shortcut to pick a model — `price` (selects cheapest available) or `quality` (selects highest quality available). Use instead of specifying `llm_code` directly when you want automatic selection.
 
 **Word replacements** (`replace_settings`): find/replace pairs applied to all bot responses. Supports partial-word matching. Use to standardize terminology or suppress unwanted phrases.
 
@@ -122,13 +134,17 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 **Notifications** (`notify_settings`): configure Telegram or Messenger MAX alerts for platform events — low balance, FAQ Document triggers, channel status changes, errors. Template variables: `{bot}` (bot name), `{source}` (client identifier), `{document}` (triggered document name), `{suvvy_chat}` (dashboard link to dialogue), `{summary}` (AI summary; requires an LLM prompt describing what to extract). Configure in the Оповещения tab; enable/disable per-bot.
 
-**Channels**: communication surfaces connected to a bot. Available categories: CRM systems (amoCRM, Kommo, Bitrix24, RetailCRM, GetCourse), Messengers (Telegram, WhatsApp, Max), Social networks (VK, Instagram, Facebook), Website chats (Suvvy Widget, Jivo), Marketplaces (Wildberries, OZON, Яндекс.Маркет, Avito), Helpdesk systems (UseDesk, PlanFix, Omnidesk, HelpDeskEddy), Omnichannel platforms (Wazzup, Umnico), Personal channel (API). Full list in the Channels tab of each bot.
+**Channels**: communication surfaces connected to a bot. Available categories: CRM systems (amoCRM, Kommo, Bitrix24, RetailCRM, GetCourse), Messengers (Telegram, WhatsApp, Max), Social networks (VK, Instagram, Facebook), Website chats (Suvvy Widget, Jivo, Zoho SalesIQ, Zoho TeamInbox), Marketplaces (Wildberries, OZON, Яндекс.Маркет, Avito), Helpdesk systems (UseDesk, PlanFix, Omnidesk, HelpDeskEddy), Omnichannel platforms (Wazzup, Umnico), Voice (inbound/outbound calls), Personal channel (API). Full list in the Channels tab of each bot.
 
 **Integrations**: pre-built connectors available in categories: Booking systems (YCLIENTS, ALTEGIO, MedFlex), Payment systems (YooKassa, Prodamus), Calendars (Google Calendar), Notifications (Telegram, MAX), CRM systems (AmoCRM, Kommo). Full list in the Integrations tab of each bot.
 
 > **Limitation:** Channels and Integrations cannot be configured via MCP. If they are needed, the user must set them up manually in their Suvvy dashboard (личный кабинет).
 
-**Profile switching (agency/integrator use)** — if managing multiple clients' bots from one account, use `switch_to_client_profile(profile_id)` to switch the MCP session to a client's workspace, and `switch_to_self_profile` to return. Use `get_info_about_self_user` to check the currently active profile.
+**Profile switching (agency/integrator use)** — if managing multiple clients' bots from one account, use `switch_to_client_profile(user_id)` to switch the MCP session to a client's workspace, and `switch_to_self_profile` to return. Use `get_info_about_self_user` to check the currently active profile.
+
+To find the `user_id` before switching, use `get_user_list` — it returns a paginated list of all service users and supports search via the `query` parameter (email or company name). Once you have the ID, use `get_user(user_id)` to fetch full details for a specific user. Typical flow: search with `get_user_list(query="client@example.com")`, grab the `user_id` from the result, then call `switch_to_client_profile(user_id)`.
+
+**Bot folders** — bots can be organized in folders. Pass `folder_id` to `create_instance` to place the new bot in a folder. Use `get_instance_list(instance_folder_id=...)` to list bots in a specific folder. Manage folders in the Suvvy dashboard.
 
 ### Functions
 
@@ -184,6 +200,10 @@ When importing via `import_faq_documents`, the platform automatically generates 
 
 Both import tools require a file URL obtained via the presigned upload workflow (see **Uploading Files** section). Temporary uploaded files and their URLs are deleted from storage after **48 hours**.
 
+**FAQ Document ordering** (`index`): controls the sort order of documents in the list the bot sees. Set `index` when creating or updating a document to position it among others — lower index = shown earlier.
+
+**Set temperature on retrieval** (`events.set_temperature`): when the bot retrieves this FAQ Document, the LLM temperature is temporarily changed for that turn (value 0–2). Use to make specific answers more creative or more deterministic than the default.
+
 FAQ Document management tools: `create_faq_document_list` (bulk-create multiple documents in one call — faster than sequential `create_faq_document`); `get_faq_document`, `get_instance_faq_documents` (retrieve); `update_faq_document`, `delete_faq_documents` (modify/remove).
 
 #### Big Documents
@@ -198,7 +218,17 @@ FAQ Document management tools: `create_faq_document_list` (bulk-create multiple 
 - **Manual query:** Use `manual_query_big_documents` to test semantic search against a bot's Big Documents directly — without going through the test chat. Pass a natural-language query and inspect which chunks are returned. Useful for diagnosing retrieval quality.
 - **Import** requires a file URL obtained via the presigned upload workflow (see **Uploading Files** section).
 
-Big Document management tools: `get_big_document`, `get_instance_big_documents` (retrieve); `update_big_document`, `replace_big_document_text` (update content without re-uploading a file); `delete_big_documents` (remove); `import_big_documents_other` (import from additional formats not covered by the standard import tool).
+**Auto-update** (`update_minutes`) — Big Documents connected to an external source (GitBook, Google Docs) can be configured to re-sync automatically. Set `update_minutes` (minimum 60) via `update_big_document`. Set to `null` to disable auto-update.
+
+**Smart preprocessing** (`smart_preprocessing_mode`): controls OCR and layout analysis — `never`, `if_invalid` (default, applies when parsing fails), `always`. Use `always` for scanned PDFs or image-heavy documents. Also configurable in `replace_big_document_text`.
+
+**Keep images** (`keep_images`): when importing, extract and keep images from the document (useful when the document's images are needed for visual context in answers).
+
+**External source imports** via `import_big_documents_other`:
+- **Google Docs** — pass `google_doc_id` (the ID from the Google Docs URL)
+- **GitBook** — pass `gitbook_token` + `gitbook_space_id`; optionally `exclude_pages_ids` to skip specific pages
+
+Big Document management tools: `get_big_document`, `get_instance_big_documents` (retrieve); `update_big_document` (update settings, auto-update interval, events), `replace_big_document_text` (replace content without re-uploading); `delete_big_documents` (remove).
 
 #### Knowledge Tags
 
@@ -219,7 +249,15 @@ Tags are configured and created independently, then linked to FAQ Documents and 
   - Append new rows: `customer_data_append_table` — bot collects fields from the conversation and adds a row
   - Edit existing rows: `customer_data_edit_table` — bot first finds the target row by any column, then modifies it; requires "Get data" flag also enabled
 
-Table MCP tools: `get_table_list`, `get_table`, `get_table_columns`, `get_table_head`, `get_table_types` (inspect); `import_table`, `edit_table`, `replace_table` (modify content); `delete_table`, `delete_table_cache` (manage — `delete_table_cache` forces a re-sync for Google Sheets tables).
+**Table settings** (configured via `edit_table`):
+- `initial_sql_query` — a default SQL filter applied to every bot query on this table; e.g., `WHERE is_active = 1`. The bot still writes its own query, but it runs inside this wrapper
+- `limit_rows` — hard cap on rows returned per query, regardless of the bot's SQL
+- `cache_lifetime_minutes` — how long to cache Google Sheets data (0 = no cache, always fresh)
+- `function_name` / `function_description` — override the table's callable function name and description shown to the bot
+- `is_enabled` — enable/disable the table's built-in function without deleting it
+- `table_columns` — per-column settings: `use_like_for_search` (partial text match), `use_lower_for_search` (case-insensitive), `disallow_edit` (prevent bot from editing this column), `always_string` (treat value as text even if numeric)
+
+Table MCP tools: `get_table_list`, `get_table`, `get_table_columns` (column names), `get_table_head` (first 5 rows), `get_table_types` (column types) — use these to inspect before writing SQL; `import_table`, `edit_table`, `replace_table` (modify); `delete_table`, `delete_table_cache` (manage).
 
 ### Custom Tools
 
@@ -250,8 +288,12 @@ Custom Tools are a powerful way to extend a bot's capabilities with arbitrary lo
 | `instagram` | Send a direct message in response to a comment |
 | `omnidesk` | Helpdesk actions in Omnidesk (change assignee / group) |
 | `amocrm` / `kommo` | CRM actions: add/edit lead or contact, send summary note |
-| `generate_image` | Generate an image from a text prompt |
-| `edit_image` | Edit an existing image |
+| `generate_image` | Generate an image from a text prompt (model-selectable, resolution 1K/2K/4K) |
+| `edit_image` | Edit an existing image (model-selectable) |
+| `generate_text2image` | Generate image via Stability AI (fixed `ultra` model, styles: photographic/anime/cinematic/etc.) |
+| `generate_image2image` | Transform image via Stability AI |
+| `generate_search_and_replace` | Search for object in image and replace it (Stability AI) |
+| `glif_slap_logo_on_image` | Overlay a logo onto an existing image (Glif integration) |
 | `base_action` | Placeholder step — no action, returns a configured static text |
 
 **Arguments** — the bot extracts specified values from the conversation and passes them as typed function parameters. Types: `string`, `number`, `datetime`, `boolean`, `list`, `file_id`, `file_id_list`. Each argument has an optional description that guides the bot on what to extract.
@@ -286,6 +328,12 @@ Auto-triggered tools run invisibly in the background with predefined argument va
 Conditions combine with **AND** (all must be met) or **OR** (at least one must be met). Comparisons: equals, not equals, greater/less than, contains, does not contain.
 
 **`refuse_on_call`** — bot skips sending a reply to the specific message that triggered this tool. Subsequent messages are handled normally. Use when the tool itself sends the response via a `send_message` step.
+
+**`delay_before_run_seconds`** — pause (0–60 seconds) before the tool starts executing. Use when a brief delay improves UX (e.g., simulate typing) or when a webhook endpoint needs warm-up time.
+
+**`save_tool_call`** — whether to save this tool call to the dialogue history sent to the LLM on subsequent turns (default: true). Set to false to hide the call from future context (reduces tokens for fire-and-forget auto-triggered tools).
+
+**Webhook step `return_as_file`** — instead of returning the webhook response as text, send it as a file directly to the client chat (type: `document` or `image`). Configure `file_name` and optionally `data_to_send_instead` (text message returned to the bot instead of the file content). Set `before_messages: true` to send the file before the bot's reply.
 
 **`stop_dialogue_on_call`** — bot stops responding in this dialogue entirely after the tool runs. The dialogue stays open for a human employee to take over.
 
@@ -390,6 +438,9 @@ Custom Variables are named fields that persist for the entire duration of a dial
 - Persist across the whole dialog — survives bot switches, multiple turns, Custom Tool calls
 - Useful for storing client data collected during conversation (e.g., phone number, chosen product, lead stage)
 - The predefined list of variable names is configured in advance; the bot assigns values to those names
+- **Typed**: each variable has a type — `string`, `integer`, `number`, `boolean`
+- **`show_to_bot`**: whether this variable is included in the bot's context (default: true). Set to false to hide internal variables from the LLM.
+- **`is_writeable_by_bot`**: whether the bot can set this variable directly (default: true). Set to false to make it read-only for the bot (only settable via Custom Tool steps).
 
 ### Memory (Dynamic Variables)
 
@@ -444,9 +495,10 @@ Suvvy supports a **Voice Agent** mode for phone call interactions. The bot recei
 
 **Call settings:**
 - Welcome message played at call start
-- Background audio (ambient sound, adjustable volume)
-- `end_on_silence` — auto-hangup after inactivity period
-- `max_call_duration` — maximum call length in minutes
+- Background audio (ambient sound, adjustable volume) — options: `city_ambience`, `forest_ambience`, `office_ambience`, `crowded_room`
+- `user_away_finish_call_seconds` (30–300) — auto-hangup after this many seconds of client silence
+- `max_call_duration_minutes` (5–30) — maximum call length
+- **Silence response** (`silence_response`): when the client is silent for `timeout_seconds` (3–60), the bot proactively says one of the configured `phrase_list` strings and runs the `instruction` to decide what to do next. Use to prompt idle callers ("Are you still there?").
 
 **Setup:** Configure in the **Голос** tab of the Instruction screen. Requires a phone number, a SIP address (obtained from Suvvy support), and configuration with a telephony provider.
 
