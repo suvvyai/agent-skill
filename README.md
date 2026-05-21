@@ -11,8 +11,8 @@
 Устанавливает MCP-сервер и скилл одной командой.
 
 ```
-/plugin marketplace add suvvy-ai/llm-skill
-/plugin install suvvy-mcp@suvvy-ai/llm-skill
+/plugin marketplace add suvvy-ai/agent-skill
+/plugin install suvvy-mcp@suvvy-ai/agent-skill
 ```
 
 После перезапуска Claude Code скилл `suvvy-mcp` появится в списке активных. Для аутентификации спросите ассистента: *«войди в Suvvy»* или вызовите инструмент `authenticate`.
