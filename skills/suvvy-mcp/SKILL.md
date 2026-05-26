@@ -14,6 +14,8 @@ Suvvy is a platform for creating LLM-powered chatbots (**Bots**) that connect to
 
 > Throughout this skill, "see MCP" or "available via MCP" means: consult the relevant MCP tool schema directly — tool descriptions and argument definitions are the authoritative source for full parameter details.
 
+**Using references:** Whenever any feature is mentioned — even in passing — immediately load the relevant `references/` file before continuing. When in doubt, load it. Do not rely on the summary in the main file alone.
+
 ## Plan First, Build Second
 
 **Before creating or significantly modifying a bot, always plan first — never make API calls without a confirmed plan.**
