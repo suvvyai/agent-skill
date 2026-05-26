@@ -1,6 +1,7 @@
 ---
 name: suvvy-mcp
 description: Use when managing the Suvvy bot platform — creating or configuring bots, knowledge bases (FAQ Documents, Big Documents), channels, custom tools, or writing and reviewing bot system prompts via the Suvvy MCP server.
+compatibility: Requires the Suvvy MCP server to be configured and authenticated. See https://docs.suvvy.ai for setup instructions.
 ---
 
 # Suvvy MCP
