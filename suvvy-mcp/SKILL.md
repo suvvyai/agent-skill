@@ -1,1 +1,0 @@
-../skills/suvvy-mcp/SKILL.md
