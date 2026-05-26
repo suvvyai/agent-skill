@@ -26,6 +26,41 @@ When the user asks to build or configure a bot, do not start executing immediate
 
 This applies to building a new bot, adding a major feature, restructuring the knowledge base, or any change that involves multiple interconnected decisions.
 
+## Communicating with Users
+
+**The target audience is non-technical users.** They do not know how the platform works internally — and they don't need to. Your job is to speak in terms of outcomes, not mechanics.
+
+### What to never expose (unless the user explicitly asks)
+
+**Function and parameter names** — the user should never see these:
+- ❌ "Я вызову `create_faq_document` с параметром `title_for_search`…"
+- ❌ "Обновлю `llm_settings.temperature_mode` на `stability`"
+- ❌ "Установлю `history_type: last_messages`"
+
+**Internal object IDs** — keep them behind the scenes:
+- ❌ "ID бота: `a1b2c3d4-...`"
+- ❌ "instance_id вашего бота — `xyz`"
+
+### How to communicate instead
+
+Describe what will happen, not what API call you're making:
+
+| Instead of this | Say this |
+|---|---|
+| "Вызову `create_instance` для создания бота" | "Создаю бота" |
+| "Установлю `history_type: last_messages`" | "Настрою бота так, чтобы он помнил только последние N сообщений" |
+| "Обновлю `llm_settings.temperature_mode: stability`" | "Сделаю ответы бота стабильными и предсказуемыми" |
+| "Создам `faq_document` с `title_for_search`" | "Добавлю в базу знаний документ о…" |
+| "Добавлю шаг типа `webhook` в Custom Tool" | "Настрою обращение к вашему API при…" |
+
+### Когда ID всё же нужны
+
+Предоставляйте ID только если:
+- Пользователь явно спрашивает ("какой ID у моего бота?")
+- ID нужен для ручной настройки в другой системе
+
+В остальных случаях — держите техническую механику за кадром.
+
 ## Terminology
 
 | Concept | Primary Term | Code / MCP Term | Russian | Aliases / Abbreviations |
@@ -66,85 +101,117 @@ Each bot has:
 
 ### Key Bot Settings
 
-All bot settings are updated via `update_instance_settings`. The most important ones:
+All bot settings are updated via `update_instance_settings`. The most important ones, grouped by concern:
 
-**LLM:**
+#### LLM & Generation
+
 - `llm_code` — model used in production; `test_llm_code` — model used only in the test chat (does not affect live dialogues)
 - `llm_settings.reasoning_effort` — reasoning depth: `minimal` / `low` / `medium` / `high`
 - `llm_settings.web_search` — enable internet search (configure `country` and optionally `allowed_domains`)
-- Use `get_llm_list` to fetch the current list of models available on the platform before setting `llm_code` or `test_llm_code`.
+- Use `get_llm_list` to fetch the current list of available models before setting `llm_code` or `test_llm_code`.
+- `set_default_llm` — shortcut to pick a model automatically: `price` (cheapest available) or `quality` (highest quality available). Use instead of specifying `llm_code` directly.
+- `llm_settings.temperature_mode` — response randomness: `stability` (0, most deterministic), `balanced` (10), `creative` (20, most varied). Low values = consistent factual answers; high values = more varied phrasing.
+- `llm_settings.verbosity` — response length: `low`, `medium`, `high`. Use `low` for support bots and marketplaces, `high` for detailed explanations.
+- `llm_settings.max_parallel_tool_calls` — functions callable simultaneously per turn (default: 10). Hard limit: **10 function calls per single dialogue turn** — scenarios requiring more will fail with an error.
 
-**Dialogue history** (`history_type`):
-- `enabled` — full history | `disabled` — no history | `last_time` — last N minutes | `last_messages` — last N messages
-- Controls how much context is passed to the LLM each turn
+#### Dialogue History
 
-**Working hours** (`work_days`): per-day time ranges when the bot responds; silent outside configured hours.
+`history_type` controls how much context is passed to the LLM each turn:
 
-**Employee interception** (`interception_by_employee`): when a manager writes in the same channel chat (WhatsApp, Telegram, etc.), the system detects it and freezes the bot so the human can handle the conversation directly.
+| Value | Behavior |
+|---|---|
+| `enabled` | Full history |
+| `disabled` | No history |
+| `last_time` | Last N minutes |
+| `last_messages` | Last N messages |
 
-**Image handling** (`image_description_mode`):
-- `disabled` — images from clients are ignored
-- `vision` — the LLM sees the image directly (requires a vision-capable model)
-- `if_not_found_in_knowledge_base` — first tries to match the image to an FAQ Document; if no match, a helper model describes the image and passes the text description to the bot; use for models without native vision support
-- `always` — always describe images with a helper model regardless of knowledge base match
+#### Image Handling
 
-**Image description instruction** (`image_description_instruction`): custom instruction (up to 1024 chars) passed to the helper model when it describes a client's image. Use to focus on domain-specific attributes (e.g., "describe the product name and defect type").
+- `image_description_mode`:
+  - `disabled` — images from clients are ignored
+  - `vision` — LLM sees the image directly (requires a vision-capable model)
+  - `if_not_found_in_knowledge_base` — first tries to match the image to an FAQ Document; if no match, a helper model describes the image and passes the text to the bot; use for models without native vision support
+  - `always` — always describe images with a helper model regardless of KB match
+- `image_description_instruction` — custom instruction (up to 1024 chars) passed to the helper model when describing client images. Use to focus on domain-specific attributes (e.g., "describe the product name and defect type").
+- `image_search_threshold` — similarity threshold (0–20) for visual search matching in FAQ Documents. Lower = more permissive; higher = stricter. Tune if the bot incorrectly matches or misses image-triggered FAQ Documents.
 
-**Image search threshold** (`image_search_threshold`): similarity threshold (0–20) for visual search matching in FAQ Documents. Lower = more permissive matching; higher = stricter. Tune if the bot incorrectly matches or misses image-triggered FAQ Documents.
+#### Message Filtering & Working Hours
 
-**Structured answer** (`structured_answer`): when enabled in default mode (no custom JSON schema), the bot can send images and files by writing a direct URL in its response, and can split one response into multiple sequential messages. Custom schema mode makes the bot always return a raw JSON object.
+- `work_days` — per-day time ranges when the bot responds; silent outside configured hours.
+- `ignore_customer_patterns` / `ignore_employee_patterns` — regex patterns; matching messages are silently skipped by the bot.
+- `stop_dialogue_patterns` — if a client message matches, the bot stops responding in this dialogue until resumed.
+- `resume_customer_dialogue_patterns` / `resume_employee_dialogue_patterns` — patterns that re-activate a stopped bot.
 
-**Message patterns:**
-- `ignore_customer_patterns` / `ignore_employee_patterns` — regex patterns; matching messages are silently skipped by the bot
-- `stop_dialogue_patterns` — if a client message matches, the bot stops responding in this dialogue until resumed
-- `resume_customer_dialogue_patterns` / `resume_employee_dialogue_patterns` — patterns that re-activate a stopped bot
+#### Employee Interception
 
-**`notify_on_call` / `notify_if_called`** (on Custom Tools and FAQ Documents): sends a notification to the manager's Telegram or Messenger MAX when the tool or document is triggered. Use to alert a human when a sensitive topic comes up.
+- `interception_by_employee` — when a manager writes in the same channel chat (WhatsApp, Telegram, etc.), the system detects it and freezes the bot so the human can handle the conversation directly.
+- **Additional interception conditions**: beyond the basic toggle, the bot can be configured to:
+  - Not reply to the specific message that triggered the interception (without stopping the whole dialogue)
+  - Ignore the first messages from the employee (avoid reacting to internal notes)
+  - Specify phrases that will not trigger interception
 
-**`refuse_on_call` / `refuse_if_called`** (on Custom Tools and FAQ Documents): bot skips the reply for the specific triggering message. Dialogue continues normally on subsequent messages. On FAQ Documents, setting an empty text body (`""`) achieves the same silent-retrieval effect.
+#### Response Formatting
 
-**Save function call history** (`save_function_messages`): controls whether tool call messages are included in the dialogue history sent to the LLM. Disabling reduces context size and lowers costs.
+- `structured_answer` — in default mode (no custom JSON schema): bot can send images/files by writing a direct URL, and can split one response into multiple sequential messages. Custom schema mode makes the bot always return a raw JSON object.
+- `answer_split` — how the bot splits its response into multiple sequential messages. Rules: `do_not_split`, `by_paragraphs`, `by_sentences`, `by_markdown_sections`, `by_markdown_sections_paragraphs` (default), and others. Also configure `chunk_size` (max tokens per chunk). Use with `structured_answer` enabled.
+- `before_answer_text` / `after_answer_text` — static text automatically prepended or appended to every bot reply. Use for disclaimers, footers, or branding lines.
+- `starting_message_list` — up to 10 suggestion buttons shown at dialogue start (each with `title` and `text`). When clicked, the button's text is sent as the client's first message. Useful for website widgets and Telegram bots.
+- `replace_settings` (word replacements) — find/replace pairs applied to all bot responses. Supports partial-word matching. Use to standardize terminology or suppress unwanted phrases.
+- `fallback_message` — static reply sent when the bot cannot process a message (e.g., unsupported file type received).
 
-**Employee interception conditions**: beyond the basic interception toggle, the bot can be configured to:
-- Not reply to the specific message that triggered the interception (without stopping the whole dialogue)
-- Ignore the first messages from the employee (avoid reacting to internal notes)
-- Specify phrases that will not trigger interception
+#### Notifications & Alerts
 
-**Personal data masking** (`security_settings`): masks personal data (phone numbers, emails, etc.) in dialogue history before passing it to the LLM. Required for compliance with Russian Federal Law №152-ФЗ on personal data. Also controls whether media files are sent to the LLM and how long messages and dialogues are retained (configurable in days).
+- **`notify_on_call` / `notify_if_called`** (on Custom Tools and FAQ Documents): sends a notification to the manager's Telegram or Messenger MAX when the tool or document is triggered. Use to alert a human when a sensitive topic comes up.
+- **`refuse_on_call` / `refuse_if_called`** (on Custom Tools and FAQ Documents): bot skips the reply for the specific triggering message. Dialogue continues normally on subsequent messages. On FAQ Documents, setting an empty text body (`""`) achieves the same silent-retrieval effect.
+- `notify_settings` — configure Telegram or Messenger MAX alerts for platform events: low balance, FAQ Document triggers, channel status changes, errors. Template variables: `{bot}` (bot name), `{source}` (client identifier), `{document}` (triggered document name), `{suvvy_chat}` (dashboard link to dialogue), `{summary}` (AI summary; requires an LLM prompt describing what to extract). Configure in the Оповещения tab; enable/disable per-bot.
 
-**Temperature / Creativity** (`llm_settings.temperature_mode`): controls response randomness — `stability` (0, most deterministic), `balanced` (10), `creative` (20, most varied). Low values produce consistent, factual answers; higher values produce more varied phrasing.
+#### Security & Compliance
 
-**Verbosity** (`llm_settings.verbosity`): controls response length — `low`, `medium`, `high`. Use `low` for concise replies (support bots, marketplaces), `high` for detailed explanations.
+- `security_settings` (personal data masking) — masks personal data (phone numbers, emails, etc.) in dialogue history before passing it to the LLM. Required for compliance with Russian Federal Law №152-ФЗ on personal data. Also controls whether media files are sent to the LLM and how long messages and dialogues are retained (configurable in days).
 
-**Max parallel functions** (`llm_settings.max_parallel_tool_calls`): how many functions the bot can call simultaneously per turn (default: 10). Note: the absolute limit is **10 function calls per single dialogue turn** — scenarios requiring more will fail with an error.
+#### Cost & Performance
 
-**Answer split** (`answer_split`): controls how the bot splits its response into multiple sequential messages. Split rules: `do_not_split`, `by_paragraphs`, `by_sentences`, `by_markdown_sections`, `by_markdown_sections_paragraphs` (default), and others. Also configure `chunk_size` (max tokens per chunk). Use with `structured_answer` enabled.
+- `rate_limit_settings` (spam protection) — cap the number of messages a client can send per dialogue and/or the maximum cost per dialogue. When either limit is exceeded, the bot stops responding.
+- `save_function_messages` — controls whether tool call messages are included in dialogue history sent to the LLM. Disabling reduces context size and lowers costs.
 
-**Messages before / after response** (`before_answer_text` / `after_answer_text`): static text automatically prepended or appended to every bot reply. Use for disclaimers, footers, or branding lines.
+#### Channels & Integrations
 
-**Starting messages** (`starting_message_list`): up to 10 suggestion buttons shown at the start of a new dialogue (each with `title` and `text`). When clicked, the button's text is sent as the client's first message. Useful for website widgets and Telegram bots.
+**Channels** — communication surfaces connected to a bot:
 
-**Default LLM preset** (`set_default_llm`): shortcut to pick a model — `price` (selects cheapest available) or `quality` (selects highest quality available). Use instead of specifying `llm_code` directly when you want automatic selection.
+| Category | Available channels |
+|---|---|
+| CRM systems | amoCRM, Kommo, Bitrix24, RetailCRM, GetCourse |
+| Messengers | Telegram, WhatsApp, Max |
+| Social networks | VK, Instagram, Facebook |
+| Website chats | Suvvy Widget, Jivo, Zoho SalesIQ, Zoho TeamInbox |
+| Marketplaces | Wildberries, OZON, Яндекс.Маркет, Avito |
+| Helpdesk systems | UseDesk, PlanFix, Omnidesk, HelpDeskEddy |
+| Omnichannel platforms | Wazzup, Umnico |
+| Voice | Inbound/outbound calls |
+| Personal | API |
 
-**Word replacements** (`replace_settings`): find/replace pairs applied to all bot responses. Supports partial-word matching. Use to standardize terminology or suppress unwanted phrases.
+**Integrations** — pre-built connectors that add tools once attached to a bot:
 
-**Spam protection** (`rate_limit_settings`): cap the number of messages a client can send per dialogue and/or the maximum cost per dialogue. When either limit is exceeded the bot stops responding.
+| Category | Available integrations |
+|---|---|
+| Booking systems | YCLIENTS, ALTEGIO, MedFlex |
+| Payment systems | YooKassa, Prodamus |
+| Calendars | Google Calendar |
+| Notifications | Telegram, MAX |
+| CRM systems | AmoCRM, Kommo |
 
-**Fallback message** (`fallback_message`): static reply sent to the client when the bot cannot process a message (e.g., unsupported file type received).
+> **Limitation:** Channels and Integrations cannot be configured via MCP. If they are needed, the user must set them up manually in the Suvvy dashboard (личный кабинет).
 
-**Notifications** (`notify_settings`): configure Telegram or Messenger MAX alerts for platform events — low balance, FAQ Document triggers, channel status changes, errors. Template variables: `{bot}` (bot name), `{source}` (client identifier), `{document}` (triggered document name), `{suvvy_chat}` (dashboard link to dialogue), `{summary}` (AI summary; requires an LLM prompt describing what to extract). Configure in the Оповещения tab; enable/disable per-bot.
-
-**Channels**: communication surfaces connected to a bot. Available categories: CRM systems (amoCRM, Kommo, Bitrix24, RetailCRM, GetCourse), Messengers (Telegram, WhatsApp, Max), Social networks (VK, Instagram, Facebook), Website chats (Suvvy Widget, Jivo, Zoho SalesIQ, Zoho TeamInbox), Marketplaces (Wildberries, OZON, Яндекс.Маркет, Avito), Helpdesk systems (UseDesk, PlanFix, Omnidesk, HelpDeskEddy), Omnichannel platforms (Wazzup, Umnico), Voice (inbound/outbound calls), Personal channel (API). Full list in the Channels tab of each bot.
-
-**Integrations**: pre-built connectors available in categories: Booking systems (YCLIENTS, ALTEGIO, MedFlex), Payment systems (YooKassa, Prodamus), Calendars (Google Calendar), Notifications (Telegram, MAX), CRM systems (AmoCRM, Kommo). Full list in the Integrations tab of each bot.
-
-> **Limitation:** Channels and Integrations cannot be configured via MCP. If they are needed, the user must set them up manually in their Suvvy dashboard (личный кабинет).
+#### Organization & Multi-profile
 
 **Profile switching (agency/integrator use)** — if managing multiple clients' bots from one account, pass the optional `active_user_id` parameter on **every tool call** to operate in that client's workspace. No separate "switch" call is needed — the parameter is stateless and takes effect per-request.
 
 To find the `user_id`, use `get_user_list` — paginated, supports search via `query` (email or company name). Once you have the ID, pass `active_user_id=<id>` on each subsequent tool call. Use `get_info_about_self_user` (with `active_user_id`) to confirm which profile is active.
 
-If `active_user_id` is passed but the token does not have switch permission, or the target account is not accessible, the server returns `MCP_SWITCH_FORBIDDEN` (403) or `MCP_CLIENT_NOT_FOUND` (404). If the server returns `AUTH_PARTNER_ACCESS_FORBIDDEN` (403), the target user has disabled partner access — the user must manually open the Suvvy dashboard and enter that client's password to grant access before retrying.
+Error codes when switching profiles:
+- `MCP_SWITCH_FORBIDDEN` (403) — token lacks switch permission or target account is inaccessible
+- `MCP_CLIENT_NOT_FOUND` (404) — target account not found
+- `AUTH_PARTNER_ACCESS_FORBIDDEN` (403) — target user has disabled partner access; they must open the Suvvy dashboard and enter that client's password to grant access before retrying
 
 **Bot folders** — bots can be organized in folders. Pass `folder_id` to `create_instance` to place the new bot in a folder. Use `get_instance_list(instance_folder_id=...)` to list bots in a specific folder. Manage folders in the Suvvy dashboard.
 
@@ -329,17 +396,16 @@ Auto-triggered tools run invisibly in the background with predefined argument va
 
 Conditions combine with **AND** (all must be met) or **OR** (at least one must be met). Comparisons: equals, not equals, greater/less than, contains, does not contain.
 
-**`refuse_on_call`** — bot skips sending a reply to the specific message that triggered this tool. Subsequent messages are handled normally. Use when the tool itself sends the response via a `send_message` step.
+**Additional tool settings:**
 
-**`delay_before_run_seconds`** — pause (0–60 seconds) before the tool starts executing. Use when a brief delay improves UX (e.g., simulate typing) or when a webhook endpoint needs warm-up time.
-
-**`save_tool_call`** — whether to save this tool call to the dialogue history sent to the LLM on subsequent turns (default: true). Set to false to hide the call from future context (reduces tokens for fire-and-forget auto-triggered tools).
-
-**Webhook step `return_as_file`** — instead of returning the webhook response as text, send it as a file directly to the client chat (type: `document` or `image`). Configure `file_name` and optionally `data_to_send_instead` (text message returned to the bot instead of the file content). Set `before_messages: true` to send the file before the bot's reply.
-
-**`stop_dialogue_on_call`** — bot stops responding in this dialogue entirely after the tool runs. The dialogue stays open for a human employee to take over.
-
-**`notify_on_call`** — sends a notification to the manager's Telegram or Messenger MAX when the tool is called. Use to alert a human that something notable happened (e.g., client asked about a sensitive topic).
+| Setting | Effect |
+|---|---|
+| `refuse_on_call` | Bot skips sending a reply to the specific triggering message; subsequent messages handled normally. Use when the tool itself sends the response via a `send_message` step. |
+| `delay_before_run_seconds` | Pause (0–60 s) before tool starts executing. Use to improve UX (simulate typing) or give a webhook endpoint warm-up time. |
+| `save_tool_call` | Whether to save this tool call to dialogue history (default: true). Set to false for fire-and-forget auto-triggered tools to hide the call from future context and reduce tokens. |
+| `stop_dialogue_on_call` | Bot stops responding in this dialogue entirely after the tool runs; the dialogue stays open for a human employee to take over. |
+| `notify_on_call` | Sends a notification to the manager's Telegram or Messenger MAX when the tool is called. |
+| Webhook `return_as_file` | Instead of returning webhook response as text, sends it as a file to the client chat (`document` or `image`). Configure `file_name`, optionally `data_to_send_instead` (text returned to the bot instead of file content). Set `before_messages: true` to send the file before the bot's reply. |
 
 ### Integrations
 
@@ -761,7 +827,8 @@ Tips:
 - To test employee interception: send a message as `message_sender: "employee"` and verify the bot freezes
 - **"Добавить в чёрный список"** — available in the test chat panel; blocks the client from the bot
 - **"Поделиться"** — exports the test chat dialogue as a shareable web page (useful for sharing a test session with a client or colleague)
-- **Mark message as debug** — use `mark_message_as_debug_in_test_dialogue` to "disable" a specific message in the test chat. The bot stops seeing that message in its context. Useful when iterating on a long test session: if the bot answered incorrectly on message 10 out of 10, mark that message as debug instead of resetting the entire chat and replaying from scratch. Use `user_query_table` to manually run SQL queries against a Table directly — useful for verifying that a query returns the expected rows before wiring it into a Custom Tool.
+- **Mark message as debug** — use `mark_message_as_debug_in_test_dialogue` to "disable" a specific message in the test chat. The bot stops seeing that message in its context. Useful when iterating on a long test session: if the bot answered incorrectly on message 10 out of 10, mark that message as debug instead of resetting the entire chat and replaying from scratch.
+- **Manual SQL query** — use `user_query_table` to manually run SQL queries against a Table directly, useful for verifying that a query returns the expected rows before wiring it into a Custom Tool.
 
 **Check response style, not just correctness.** After verifying that the bot answers correctly, evaluate *how* it answers: is it polite, friendly, and natural? Does the tone match the expected style? A technically correct answer delivered in a cold or awkward way is still a problem that needs fixing in the Response Style section of the instruction.
 
