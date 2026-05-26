@@ -1,0 +1,11 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Suvvy",
+      "description": "Skills for managing the Suvvy bot platform — creating bots, knowledge bases, channels, and custom tools via MCP.",
+      "skills": ["suvvy-mcp"]
+    }
+  ]
+}
