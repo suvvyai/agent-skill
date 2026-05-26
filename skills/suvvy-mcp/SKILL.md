@@ -61,6 +61,27 @@ Describe what will happen, not what API call you're making:
 
 В остальных случаях — держите техническую механику за кадром.
 
+### Названия моделей — только из актуального списка
+
+Никогда не называйте модели по внутренним кодам (`llm_code`) и не используйте названия из памяти — они могут устареть. Перед тем как упомянуть модель пользователю:
+
+1. Вызовите `get_llm_list`, чтобы получить актуальный список доступных моделей.
+2. Используйте человекочитаемое название из ответа, а не внутренний код.
+
+❌ "Выберите модель: `claude-sonnet-4-6` или `gpt-4o`"
+✅ "Выберите модель: Claude Sonnet или GPT-4o"
+
+### Цены и баланс — только в валюте, не в токенах
+
+Никогда не показывайте пользователю суммы в токенах. Всегда конвертируйте в валюту:
+
+1. Вызовите `get_balance_token_rates`, чтобы получить курс токенов для каждой модели.
+2. Пересчитайте токены в деньги.
+3. Покажите пользователю только итоговую сумму в валюте (например, "~3,2 ₽ за диалог").
+
+❌ "Стоимость диалога — 1 200 токенов"
+✅ "Стоимость диалога — около 1,8 ₽"
+
 ## Terminology
 
 | Concept | Primary Term | Code / MCP Term | Russian | Aliases / Abbreviations |
@@ -209,6 +230,8 @@ All bot settings are updated via `update_instance_settings`. The most important 
 To find the `user_id`, use `get_user_list` — paginated, supports search via `query` (email or company name). Once you have the ID, pass `active_user_id=<id>` on each subsequent tool call. Use `get_info_about_self_user` (with `active_user_id`) to confirm which profile is active.
 
 > **Do not mention `active_user_id` to the user.** Handle profile switching transparently: ask which client's account to work with, then pass the parameter silently on all subsequent calls. The user only needs to know "you're now working in Client X's account."
+
+> **After switching to a new profile, always call `get_info_about_self_user` (with `active_user_id`) immediately** to verify the switch succeeded before doing anything else. If the returned profile does not match the expected client, stop and report the error to the user.
 
 Error codes when switching profiles:
 - `MCP_SWITCH_FORBIDDEN` (403) — token lacks switch permission or target account is inaccessible
