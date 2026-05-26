@@ -208,6 +208,8 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 To find the `user_id`, use `get_user_list` — paginated, supports search via `query` (email or company name). Once you have the ID, pass `active_user_id=<id>` on each subsequent tool call. Use `get_info_about_self_user` (with `active_user_id`) to confirm which profile is active.
 
+> **Do not mention `active_user_id` to the user.** Handle profile switching transparently: ask which client's account to work with, then pass the parameter silently on all subsequent calls. The user only needs to know "you're now working in Client X's account."
+
 Error codes when switching profiles:
 - `MCP_SWITCH_FORBIDDEN` (403) — token lacks switch permission or target account is inaccessible
 - `MCP_CLIENT_NOT_FOUND` (404) — target account not found
