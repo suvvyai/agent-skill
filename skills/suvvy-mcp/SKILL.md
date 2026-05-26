@@ -140,9 +140,11 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 > **Limitation:** Channels and Integrations cannot be configured via MCP. If they are needed, the user must set them up manually in their Suvvy dashboard (личный кабинет).
 
-**Profile switching (agency/integrator use)** — if managing multiple clients' bots from one account, use `switch_to_client_profile(user_id)` to switch the MCP session to a client's workspace, and `switch_to_self_profile` to return. Use `get_info_about_self_user` to check the currently active profile.
+**Profile switching (agency/integrator use)** — if managing multiple clients' bots from one account, pass the optional `active_user_id` parameter on **every tool call** to operate in that client's workspace. No separate "switch" call is needed — the parameter is stateless and takes effect per-request.
 
-To find the `user_id` before switching, use `get_user_list` — it returns a paginated list of all service users and supports search via the `query` parameter (email or company name). Once you have the ID, use `get_user(user_id)` to fetch full details for a specific user. Typical flow: search with `get_user_list(query="client@example.com")`, grab the `user_id` from the result, then call `switch_to_client_profile(user_id)`.
+To find the `user_id`, use `get_user_list` — paginated, supports search via `query` (email or company name). Once you have the ID, pass `active_user_id=<id>` on each subsequent tool call. Use `get_info_about_self_user` (with `active_user_id`) to confirm which profile is active.
+
+If `active_user_id` is passed but the token does not have switch permission, or the target account is not accessible, the server returns `MCP_SWITCH_FORBIDDEN` (403) or `MCP_CLIENT_NOT_FOUND` (404). If the server returns `AUTH_PARTNER_ACCESS_FORBIDDEN` (403), the target user has disabled partner access — the user must manually open the Suvvy dashboard and enter that client's password to grant access before retrying.
 
 **Bot folders** — bots can be organized in folders. Pass `folder_id` to `create_instance` to place the new bot in a folder. Use `get_instance_list(instance_folder_id=...)` to list bots in a specific folder. Manage folders in the Suvvy dashboard.
 
