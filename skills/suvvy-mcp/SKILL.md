@@ -122,7 +122,7 @@ Each bot has:
 
 ### Key Bot Settings
 
-All bot settings are updated via `update_instance_settings`. The most important ones, grouped by concern:
+All bot settings are updated via `update_instance`. The most important ones, grouped by concern:
 
 #### LLM & Generation
 
@@ -131,9 +131,9 @@ All bot settings are updated via `update_instance_settings`. The most important 
 - `llm_settings.web_search` — enable internet search (configure `country` and optionally `allowed_domains`)
 - Use `get_llm_list` to fetch the current list of available models before setting `llm_code` or `test_llm_code`.
 - `set_default_llm` — shortcut to pick a model automatically: `price` (cheapest available) or `quality` (highest quality available). Use instead of specifying `llm_code` directly.
-- `llm_settings.temperature_mode` — response randomness: `stability` (0, most deterministic), `balanced` (10), `creative` (20, most varied). Low values = consistent factual answers; high values = more varied phrasing.
+- `randomness` — response randomness (integer 0–100): `0` = most deterministic, `10` = balanced, `20` = creative. Low values = consistent factual answers; high values = more varied phrasing. The UI shows this as Стабильность / Сбалансированность / Креативность.
 - `llm_settings.verbosity` — response length: `low`, `medium`, `high`. Use `low` for support bots and marketplaces, `high` for detailed explanations.
-- `llm_settings.max_parallel_tool_calls` — functions callable simultaneously per turn (default: 10). Hard limit: **10 function calls per single dialogue turn** — scenarios requiring more will fail with an error.
+- `parallel_tool_call_limit` — functions callable simultaneously per turn (default: 10). Hard limit: **10 function calls per single dialogue turn** — scenarios requiring more will fail with an error.
 
 #### Dialogue History
 
@@ -143,8 +143,10 @@ All bot settings are updated via `update_instance_settings`. The most important 
 |---|---|
 | `enabled` | Full history |
 | `disabled` | No history |
-| `last_time` | Last N minutes |
-| `last_messages` | Last N messages |
+| `last_time` | Last N minutes — set duration via `history_time_minutes` |
+| `last_messages` | Last N messages — set count via `history_last_messages_first_index` |
+
+- `add_datetime_system_messages` — automatically prepend current date and time to every system message. Useful when the bot needs to be aware of the current time without explicit `{current_datetime}` in the instruction.
 
 #### Image Handling
 
@@ -158,41 +160,68 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 #### Message Filtering & Working Hours
 
-- `work_days` — per-day time ranges when the bot responds; silent outside configured hours.
-- `ignore_customer_patterns` / `ignore_employee_patterns` — regex patterns; matching messages are silently skipped by the bot.
+- `work_days` — per-day time ranges when the bot responds; silent outside configured hours. Format per day: `["HH:MM:SS-HH:MM:SS"]`. Also set `timezone` (offset from UTC, e.g. `3` for Moscow) so work hours are evaluated in the correct timezone.
+- `ignore_customer_patterns` / `ignore_employee_patterns` — regex patterns; matching messages are silently skipped by the bot. Each entry: `pattern`, `can_be_part_of_word`, `dont_add_message` (if true, the message is also excluded from dialogue history — not just ignored by the bot).
 - `stop_dialogue_patterns` — if a client message matches, the bot stops responding in this dialogue until resumed.
 - `resume_customer_dialogue_patterns` / `resume_employee_dialogue_patterns` — patterns that re-activate a stopped bot.
 
 #### Employee Interception
 
 - `interception_by_employee` — when a manager writes in the same channel chat (WhatsApp, Telegram, etc.), the system detects it and freezes the bot so the human can handle the conversation directly.
+- `ignored_employee_messages_count` — number of first messages from the employee to ignore before triggering interception (avoids reacting to internal notes or system messages).
+- `sleep_time_minutes` — auto-resume: after this many minutes of employee inactivity, the bot automatically regains control of the dialogue. Set to `-1` to disable auto-resume.
 - **Additional interception conditions**: beyond the basic toggle, the bot can be configured to:
   - Not reply to the specific message that triggered the interception (without stopping the whole dialogue)
-  - Ignore the first messages from the employee (avoid reacting to internal notes)
-  - Specify phrases that will not trigger interception
+  - Specify phrases that will not trigger interception (`resume_employee_dialogue_patterns` / `resume_customer_dialogue_patterns`)
 
 #### Response Formatting
 
-- `structured_answer` — in default mode (no custom JSON schema): bot can send images/files by writing a direct URL, and can split one response into multiple sequential messages. Custom schema mode makes the bot always return a raw JSON object.
-- `answer_split` — how the bot splits its response into multiple sequential messages. Rules: `do_not_split`, `by_paragraphs`, `by_sentences`, `by_markdown_sections`, `by_markdown_sections_paragraphs` (default), and others. Also configure `chunk_size` (max tokens per chunk). Use with `structured_answer` enabled.
-- `before_answer_text` / `after_answer_text` — static text automatically prepended or appended to every bot reply. Use for disclaimers, footers, or branding lines.
+- `structured_answer` — in default mode (no custom JSON schema): bot can send images/files by writing a direct URL, and can split one response into multiple sequential messages. Set `chat_instruction` (up to 1000 chars) to give the bot additional formatting guidance in this mode. Custom `json_schema` mode makes the bot always return a raw JSON object.
+- `answer_split` — how the bot splits its response into multiple sequential messages. Rules: `do_not_split`, `by_paragraphs`, `by_paragraphs3`, `by_lines`, `by_sentences`, `by_words`, `by_symbols`, `by_symbols_nearest_word`, `by_symbols_nearest_sentence`, `by_symbols_nearest_line`, `by_tokens_nearest_word`, `by_tokens_nearest_sentence`, `by_tokens_nearest_line`, `by_markdown_sections`, `by_markdown_sections_paragraphs` (default), `by_markdown_sections_paragraphs3`. Also configure `chunk_size` (max tokens per chunk). Use with `structured_answer` enabled.
+- `send_message_sleep_seconds` — static delay in seconds (0–60) between each sequential message chunk. Use to simulate typing pauses.
+- `send_message_dynamic_sleep` — enable dynamic delay between chunks based on chunk length (longer chunks = longer pause). Overrides static delay for text chunks; media chunks still use static delay.
+- `message_header` / `message_footer` — static text automatically prepended or appended to every bot reply. Use for disclaimers, footers, or branding lines.
 - `starting_message_list` — up to 10 suggestion buttons shown at dialogue start (each with `title` and `text`). When clicked, the button's text is sent as the client's first message. Useful for website widgets and Telegram bots.
-- `replace_settings` (word replacements) — find/replace pairs applied to all bot responses. Supports partial-word matching. Use to standardize terminology or suppress unwanted phrases.
+- `replacement_patterns` (word replacements) — find/replace pairs applied to all bot responses. Each entry: `pattern`, `replacement`, `can_be_part_of_word` (default false). Use to standardize terminology or suppress unwanted phrases.
 - `fallback_message` — static reply sent when the bot cannot process a message (e.g., unsupported file type received).
 
 #### Notifications & Alerts
 
 - **`notify_on_call` / `notify_if_called`** (on Custom Tools and FAQ Documents): sends a notification to the manager's Telegram or Messenger MAX when the tool or document is triggered. Use to alert a human when a sensitive topic comes up.
 - **`refuse_on_call` / `refuse_if_called`** (on Custom Tools and FAQ Documents): bot skips the reply for the specific triggering message. Dialogue continues normally on subsequent messages. On FAQ Documents, setting an empty text body (`""`) achieves the same silent-retrieval effect.
-- `notify_settings` — configure Telegram or Messenger MAX alerts for platform events: low balance, FAQ Document triggers, channel status changes, errors. Template variables: `{bot}` (bot name), `{source}` (client identifier), `{document}` (triggered document name), `{suvvy_chat}` (dashboard link to dialogue), `{summary}` (AI summary; requires an LLM prompt describing what to extract). Configure in the Оповещения tab; enable/disable per-bot.
+- `notification_settings` — configure Telegram or Messenger MAX notification templates for bot events. Set `summary_instruction` (LLM prompt describing what to extract from the dialogue as a summary) and `document_used_template` (template for the notification sent when an FAQ Document is triggered). Template variables: `{bot}` (bot name), `{source}` (client identifier), `{document}` (triggered document name), `{suvvy_chat}` (dashboard link to dialogue), `{summary}` (AI summary). Configure channels and events in the Оповещения tab; enable/disable per-bot.
+
+#### RAG / Vector Search Settings
+
+These settings control how Big Document (semantic/vector) search behaves:
+
+- `vector_search_similarity_threshold` — similarity threshold (-1 to 1) for Big Document search. Lower = more permissive (returns more chunks); higher = stricter (only high-confidence matches). Tune when the bot retrieves too many irrelevant or too few relevant chunks.
+- `vector_search_return_top_n` — maximum number of chunks returned per search query. Default is platform-determined.
+- `vector_search_return_chunks` — if true, the bot receives raw chunk text; if false, chunks are aggregated before being returned. Turning on is useful for debugging retrieval quality.
+
+#### Knowledge Base Options
+
+- `use_get_file_text_function_patterns` — list of keyword patterns. If any keyword is found in the client's message, the bot is required to call at least one FAQ Document function before responding. Each entry: `pattern`, `can_be_part_of_word`. Use to guarantee the bot always checks the KB for specific topics.
+- `use_precise_get_file_text_tool_description` — when true, generates a more precise description for the FAQ Document search function, improving retrieval accuracy ("Повышенная теплота БЗ" in the UI).
 
 #### Security & Compliance
 
-- `security_settings` (personal data masking) — masks personal data (phone numbers, emails, etc.) in dialogue history before passing it to the LLM. Required for compliance with Russian Federal Law №152-ФЗ on personal data. Also controls whether media files are sent to the LLM and how long messages and dialogues are retained (configurable in days).
+- `security_settings` (personal data masking) — masks personal data in dialogue history before passing it to the LLM. Required for compliance with Russian Federal Law №152-ФЗ. Fields:
+  - `personal_data_masking.birth_dates` — also mask birth dates (in addition to default phone/email masking)
+  - `send_media_to_llm` — whether to forward client media files to the LLM
+  - `dialogue_message_ttl_days` / `dialogue_ttl_days` — retention period for messages and dialogues (3–90 days)
 
 #### Cost & Performance
 
-- `rate_limit_settings` (spam protection) — cap the number of messages a client can send per dialogue and/or the maximum cost per dialogue. When either limit is exceeded, the bot stops responding.
+- `anti_spam_settings` (spam protection) — cap messaging per dialogue. Fields:
+  - `dialogue_message_limit` — max messages per dialogue (1–1000)
+  - `dialogue_token_limit` — max tokens per dialogue (1000–1500000)
+  - `customer_identical_message_limit` — max identical consecutive messages from the same client before spam protection activates (5–20)
+  - `anti_spam_period_hours` — how long (in hours, 1–720) the spam protection period lasts; resets after this window
+  - `limit_exceeded_message` — custom text sent to the client when a limit is hit
+  - `translate_limit_exceeded_message` — if true, the limit message is auto-translated to the client's language
+
+  When any limit is exceeded, the bot stops responding.
 - `save_function_messages` — controls whether tool call messages are included in dialogue history sent to the LLM. Disabling reduces context size and lowers costs.
 
 #### Channels & Integrations
@@ -201,21 +230,21 @@ All bot settings are updated via `update_instance_settings`. The most important 
 
 | Category | Available channels |
 |---|---|
-| CRM systems | amoCRM, Kommo, Bitrix24, RetailCRM, GetCourse |
-| Messengers | Telegram, WhatsApp, Max |
+| CRM systems | amoCRM, Kommo, Bitrix24 (маркетплейс), Bitrix24 (веб-хуки), RetailCRM, GetCourse |
+| Messengers | Telegram, WhatsApp, Max (личный чат), Бот Max (Max-боты), Wazzup |
 | Social networks | VK, Instagram, Facebook |
-| Website chats | Suvvy Widget, Jivo, Zoho SalesIQ, Zoho TeamInbox |
+| Website chats | Suvvy Widget, Jivo |
 | Marketplaces | Wildberries, OZON, Яндекс.Маркет, Avito |
 | Helpdesk systems | UseDesk, PlanFix, Omnidesk, HelpDeskEddy |
-| Omnichannel platforms | Wazzup, Umnico |
+| Omnichannel platforms | Umnico |
 | Voice | Inbound/outbound calls |
-| Personal | API |
+| Personal | API (Персональный канал) |
 
 **Integrations** — pre-built connectors that add tools once attached to a bot:
 
 | Category | Available integrations |
 |---|---|
-| Booking systems | YCLIENTS, ALTEGIO, MedFlex |
+| Booking systems | YCLIENTS, ALTEGIO, MedFlex, SquareUp |
 | Payment systems | YooKassa, Prodamus |
 | Calendars | Google Calendar |
 | Notifications | Telegram, MAX |
@@ -400,7 +429,13 @@ Custom Tools are a powerful way to extend a bot's capabilities with arbitrary lo
 - `all` — all step results concatenated
 - `custom_result` — a custom text assembled from step variables
 
-**Auto-trigger (`trigger_settings`)** — a Custom Tool can be configured to fire **automatically** without the bot making a deliberate call, on a specific event:
+**Bot-level first-message auto-call (`fake_call`)** — a bot-level setting (not per-tool) that automatically fires specific Custom Tools or integration functions when the **first message** of a new dialogue arrives, before the bot processes it. Configure via `update_instance` with the `fake_call` parameter:
+- `fake_calls` — list of tools to auto-call (each with `custom_tool_id` or `tool_name` for integration tools, plus optional `parameters`)
+- `rules: "first_message"` — only triggers on the first message of a dialogue
+
+Use when you need guaranteed actions at dialogue start (e.g., CRM lead creation, context pre-loading) that shouldn't depend on the bot deciding to call the tool.
+
+**Per-tool auto-trigger (`trigger_settings`)** — a Custom Tool can be configured to fire **automatically** without the bot making a deliberate call, on a specific event:
 - `new_dialogue` — when a new dialogue starts
 - `new_customer_message` — on every client message
 - `new_employee_message` — on every employee message
@@ -548,14 +583,35 @@ Memory works the same as Custom Variables but without a predefined list of field
 
 Standard Functions are built-in callable functions that can be enabled on any bot without creating a Custom Tool. Once enabled, the bot can call them directly based on the conversation context.
 
-| Function | What it does |
-|---|---|
-| **Stop dialogue** | Bot stops responding in this dialogue; a human employee takes over |
-| **Ignore message** | Bot ignores the triggering message and sends no reply |
-| **Set dialogue tag** | Bot tags the dialogue with a label (for filtering/reporting) |
-| **Call manager** | Sends a notification to the manager's Telegram when called |
+| Function | What it does | `update_instance` parameter |
+|---|---|---|
+| **Stop dialogue** | Bot stops responding in this dialogue; a human employee takes over | `stop_dialogue` |
+| **Ignore message** | Bot ignores the triggering message and sends no reply | `ignore_message` |
+| **Set dialogue tag** | Bot tags the dialogue with a label (for filtering/reporting) | `set_dialogue_tag` |
+| **Call manager** | Sends a notification to the manager's Telegram when called | `call_manager` |
 
-Enable/disable each in **Доп. настройки → Стандартные функции**. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
+Each standard function can be enabled/disabled via its `is_enabled` field and given a custom `description` that the bot uses to decide when to call it. For `set_dialogue_tag`, also configure `tag_list` (list of Knowledge Tag IDs the bot can apply).
+
+Enable/disable in **Доп. настройки → Стандартные функции**. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
+
+#### Reminder Settings
+
+- `reminder_settings.add_reminder_list_to_instruction` (default: `true`) — include the list of active Follow-Ups in the bot's context so it can reference upcoming reminders during the dialogue.
+- `reminder_settings.cancel_reminders` — configure the built-in cancel-reminders standard function: `is_enabled` and `description`.
+
+#### Message Saving & Inactive State
+
+- `save_messages_if_inactive` — save incoming messages to dialogue history even when the bot is paused/inactive.
+- `send_messages_after_inactive` — when the bot resumes activity, send the scheduled messages that accumulated during the inactive period.
+- `schedule_messages_activation_use_instance_model` — use the bot's main LLM model (not the default) when generating scheduled message content.
+- `schedule_messages_without_predict` — send scheduled messages as fixed text without generating a new LLM response.
+
+#### Scheduled Event Groups Wiring
+
+Connect bot-level Follow-Up groups to dialogue events via:
+- `scheduled_event_groups_after_instance` — list of group IDs to trigger after every bot message
+- `scheduled_event_groups_after_employee` — list of group IDs to trigger after every employee message
+- `scheduled_event_work_days` — separate work schedule controlling when scheduled event groups are allowed to fire (same format as `work_days`)
 
 ### Common Bot Archetypes
 
@@ -572,19 +628,23 @@ Any role that involves text-based client interaction is a valid use case.
 
 Suvvy supports a **Voice Agent** mode for phone call interactions. The bot receives audio, converts speech to text (STT), processes the conversation, and responds via synthesized speech (TTS).
 
-**STT settings:**
-- Model and language selection
-- Custom keywords for improved domain-specific recognition
-- `voice_sensitivity` — voice detection threshold
-- `min_duration` — minimum audio length to register as speech
-- `end_pause_duration` — silence duration that marks end of a phrase
+**STT settings** (`voice_settings.stt_model`):
+- `name` — STT model: `"openai/gpt-4o-transcribe"`, `"deepgram/nova-2"`, `"deepgram/nova-3"`, `"elevenlabs/scribe_v2_realtime"`, `"deepgram/flux-general-en"`
+- `language` — `"ru"`, `"en"`, or `"multi"` for multilingual recognition
+- `keywords` — list of domain-specific keywords to improve recognition accuracy
 
-**TTS settings:**
-- Voice selection (multiple options)
-- `speed` — speech rate
-- `stability` — consistency vs. expressiveness balance
-- `expressiveness` — liveliness level
-- `similarity` — closeness to the reference voice sample
+**VAD settings** (`voice_settings.vad`) — voice activity detection:
+- `activation_threshold` (0–1) — sensitivity threshold for detecting speech
+- `min_speech_duration` (0–2 sec) — minimum audio duration to register as speech
+- `min_silence_duration` (0–2 sec) — silence duration that marks end of a phrase
+
+**TTS settings** (`voice_settings.tts_model`):
+- `name` — TTS model: `"eleven_flash_v2_5"` or `"eleven_turbo_v2_5"`
+- `voice_id` — ElevenLabs voice ID
+- `speed` (0.25–4) — speech rate
+- `stability` (0–1) — consistency vs. expressiveness balance
+- `style` (0–1) — liveliness/expressiveness level
+- `similarity_boost` (0–1) — closeness to the reference voice sample
 
 **Call settings:**
 - Welcome message played at call start
@@ -650,7 +710,7 @@ Examples:
 - `Client phone number — {client_phone}`
 - `Current date and time — {current_datetime}`
 
-Use `get_instance_instruction_variables` to get the list of available variables for a given bot. This list is not exhaustive — additional variables (e.g., from connected integrations or channels) can be found by inspecting dialogue info with `get_dialogue_with_messages_by_id`.
+Use `get_instance_available_variables` to get the list of available variables for a given bot. This list is not exhaustive — additional variables (e.g., from connected integrations or channels) can be found by inspecting dialogue info with `get_dialogue_by_id`.
 
 **Templates in the instruction / Шаблоны в инструкции (optional):**
 
@@ -805,6 +865,8 @@ Use a Subordinate Bot when a task is complex enough to benefit from a dedicated 
 
 A good starting point is to create the bot (`create_instance`, always without a template), write a first version of the system prompt, and create the initial FAQ Documents for the most common intents. That's enough to run the first test. From there, the process is iterative — add Custom Tools, Custom Variables, Memory, adjust bot settings, and keep testing.
 
+**Copying a bot** — use `create_instance` with `from_instance` (an existing bot's ID) to create a full copy of a bot including its instruction, knowledge base, and settings. The new bot is independent of the original.
+
 **Auto-generation (dashboard only):** the platform can generate a draft instruction and/or FAQ Documents from a text description or website URL. Four modes:
 - Generate instruction from text description
 - Generate instruction + parse website URL
@@ -823,7 +885,7 @@ Change something → Test → Identify issues → Fix → Reset test chat → Re
 
 **How to run a test session:**
 
-1. Get the current test dialogue: `get_latest_test_dialogue_for_instance_by_instance_id_api` → save `dialogue_id`
+1. Get the current test dialogue: `get_latest_test_dialogue_for_instance_by_instance_id` → save `dialogue_id`
 2. Reset for a clean session: `get_new_test_dialogue_for_instance_by_instance_id` (creates a fresh test dialogue)
 3. Send client messages one at a time: `send_message_to_test_dialogue_by_id`
 4. Read the bot's responses and check for issues
@@ -908,9 +970,9 @@ When auditing a bot's prompt:
 | Multiple intents in one FAQ Document | One file = one intent |
 | Generic FAQ Document titles | Use specific intent-based titles (2–4 words) |
 | Calling `search_in_knowledge_base` for a known specific file | Use `get_file_text` with the exact title |
-| Using `set_memory` steps without enabling memory in bot settings | Enable `memory.is_enabled = true` first |
+| Using `set_memory` steps without enabling memory in bot settings | Enable `memory.is_enabled: true` via `update_instance` first |
 | `title` and `title_for_search` mismatch — bot sees wrong description | Set `title_for_search` to an intent-based phrase the bot will recognize |
-| Creating bot from a platform template | Always create without a template (`template_code: "default"`, no `template_variable`) |
+| Creating bot from a platform template | Always create without a template — pass no arguments to `create_instance` or use `template_code: "default"` |
 | Expecting `test_llm_code` model to affect live dialogues | `test_llm_code` only applies in the test chat |
 | More than 10 function calls in a single dialogue turn | Simplify the scenario; delegate sub-tasks to Subordinate Bots |
 | Contradictory instructions → bot calls the same function twice | Audit instruction for conflicting conditions; ensure each trigger is unique |
@@ -955,11 +1017,12 @@ Two fixes:
 **Write instructions and KB in English** — English text is processed ~3–4× more efficiently by most LLMs compared to Russian (fewer tokens per word). For Russian-facing bots: write the instruction and FAQ Documents in English, but add "Respond in the user's language" to the instruction. This alone can significantly reduce per-dialogue cost.
 
 **Other levers:**
-- Use a cheaper model (`llm_code`) when the task doesn't require a powerful one
-- `llm_settings.reasoning_effort: minimal` or `low` — fewer reasoning tokens for models that support extended thinking
+- Use a cheaper model (`llm_code`) when the task doesn't require a powerful one; or use `set_default_llm: "price"` to automatically pick the cheapest available model
+- `llm_settings.reasoning_effort: "minimal"` or `"low"` — fewer reasoning tokens for models that support extended thinking
 - `merge_message_time_seconds` — merge rapid-fire client messages before responding; avoids one LLM call per message burst
 - `work_days` — bot is silent outside working hours; no messages processed = no cost
 - `save_function_messages: false` — exclude function call messages from dialogue history (reduces context size)
+- `parallel_tool_call_limit: 1` — cap tool calls per turn to reduce token usage from parallel calls
 
 **Pricing reference:** Use `get_balance_token_rates` to get the current token pricing for each model. Use this when the user asks about the cost of a dialogue or wants to estimate monthly spending.
 
