@@ -14,7 +14,7 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Suvvy MCP",
+    "displayName": "Suvvy",
     "shortDescription": "Manage Suvvy bots and knowledge bases from Codex.",
     "longDescription": "Create and configure Suvvy bots, knowledge bases, channels, and custom tools through the Suvvy MCP server.",
     "developerName": "Suvvy",
