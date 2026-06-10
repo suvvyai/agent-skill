@@ -1,10 +1,12 @@
 {
-  "suvvy": {
-    "type": "http",
-    "url": "https://api.suvvy.ai/mcp"
-  },
-  "suvvy-docs": {
-    "type": "http",
-    "url": "https://docs.suvvy.ai/ru/~gitbook/mcp"
+  "mcpServers": {
+    "suvvy": {
+      "type": "http",
+      "url": "https://api.suvvy.ai/mcp"
+    },
+    "suvvy-docs": {
+      "type": "http",
+      "url": "https://docs.suvvy.ai/ru/~gitbook/mcp"
+    }
   }
 }

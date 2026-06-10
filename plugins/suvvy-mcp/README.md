@@ -4,7 +4,20 @@ Suvvy bot platform integration for AI assistants — manage bots, knowledge base
 
 ## Installation
 
-### Option 1 — Claude Plugin (recommended for Claude Code)
+### Option 1 — Codex Plugin
+
+Add this repository as a Codex marketplace, then install the bundled plugin:
+
+```bash
+codex plugin marketplace add .
+codex plugin add suvvy-mcp@suvvy
+```
+
+This installs both the Suvvy MCP server config and the `suvvy-mcp` skill that teaches Codex how to use the platform.
+
+---
+
+### Option 2 — Claude Plugin (recommended for Claude Code)
 
 Install as a Claude Plugin with the bundled skill:
 
@@ -17,7 +30,7 @@ This installs both the MCP server config and the `suvvy-mcp` skill that teaches 
 
 ---
 
-### Option 2 — NPX (any project, any IDE)
+### Option 3 — NPX (any project, any IDE)
 
 Run the installer from your project root:
 
@@ -40,7 +53,7 @@ npx @suvvy/mcp --all
 
 ---
 
-### Option 3 — Manual
+### Option 4 — Manual
 
 Add the following entry to your MCP config file:
 
@@ -80,7 +93,7 @@ Add the following entry to your MCP config file:
 
 ---
 
-### Option 4 — Anthropic Agent Skills marketplace
+### Option 5 — Anthropic Agent Skills marketplace
 
 Add the `suvvy-mcp` skill standalone (without the MCP, skill-only):
 

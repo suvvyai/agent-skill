@@ -1,7 +1,7 @@
 {
   "name": "@suvvy/mcp",
   "version": "1.0.0",
-  "description": "Suvvy MCP server installer for Claude Code, Cursor, Windsurf, and other AI assistants",
+  "description": "Suvvy MCP server installer and plugin package for Codex, Claude Code, Cursor, Windsurf, and other AI assistants",
   "bin": {
     "suvvy-mcp": "./bin/install.js"
   },
@@ -9,10 +9,11 @@
     "bin",
     "skills",
     ".mcp.json",
+    ".codex-plugin",
     ".claude-plugin",
     "gemini-extension.json"
   ],
-  "keywords": ["suvvy", "mcp", "claude", "llm", "chatbot", "ai"],
+  "keywords": ["suvvy", "mcp", "codex", "claude", "llm", "chatbot", "ai"],
   "author": "Suvvy <info@suvvy.ai> (https://suvvy.ai)",
   "license": "MIT",
   "homepage": "https://docs.suvvy.ai",

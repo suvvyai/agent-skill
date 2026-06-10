@@ -1,0 +1,31 @@
+{
+  "name": "suvvy-mcp",
+  "version": "1.0.0",
+  "description": "Suvvy bot platform integration for Codex.",
+  "author": {
+    "name": "Suvvy",
+    "email": "info@suvvy.ai",
+    "url": "https://suvvy.ai"
+  },
+  "homepage": "https://docs.suvvy.ai",
+  "repository": "https://github.com/suvvy-ai/llm-skill",
+  "license": "MIT",
+  "keywords": ["suvvy", "chatbot", "llm", "mcp", "codex"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Suvvy MCP",
+    "shortDescription": "Manage Suvvy bots and knowledge bases from Codex.",
+    "longDescription": "Create and configure Suvvy bots, knowledge bases, channels, and custom tools through the Suvvy MCP server.",
+    "developerName": "Suvvy",
+    "category": "Productivity",
+    "capabilities": ["MCP", "Skills"],
+    "websiteURL": "https://docs.suvvy.ai",
+    "brandColor": "#1F8A70",
+    "defaultPrompt": [
+      "Show my Suvvy bots.",
+      "Create a Suvvy knowledge base.",
+      "Help configure a Suvvy bot."
+    ]
+  }
+}

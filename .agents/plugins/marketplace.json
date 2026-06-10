@@ -1,0 +1,20 @@
+{
+  "name": "suvvy",
+  "interface": {
+    "displayName": "Suvvy"
+  },
+  "plugins": [
+    {
+      "name": "suvvy-mcp",
+      "source": {
+        "source": "local",
+        "path": "./plugins/suvvy-mcp"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
