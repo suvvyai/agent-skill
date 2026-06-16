@@ -269,6 +269,20 @@ Broadcasts send outbound messages to existing dialogue participants based on fil
 
 > Broadcasts are **not configurable via MCP**. Set them up in the Suvvy dashboard (Рассылки tab).
 
+### Переключение пользователей (User Switching)
+
+Интеграторы (пользователи с подпиской интегратора) могут подключать других пользователей через реферальную ссылку. По умолчанию агент работает из-под профиля интегратора, но пользователь может попросить агента переключиться и работать из-под одного из подключённых им пользователей.
+
+**Как переключиться:**
+
+1. Пользователь называет почту или название компании нужного аккаунта.
+2. Агент вызывает `get_user_list`, передавая почту или название компании в качестве фильтра. **Страницы нумеруются с нуля: первая страница — `page: 0`.**
+3. Агент находит нужного пользователя в ответе и запоминает его `_id`.
+4. Во всех последующих MCP-запросах агент передаёт этот `_id` в опциональном параметре `active_user_id`.
+5. Если при вызове любого тула с `active_user_id` возвращается ошибка `AUTH_PARTNER_ACCESS_FORBIDDEN` — интегратору нужно вручную зайти в личный кабинет Suvvy и переключиться в аккаунт этого пользователя, введя его пароль. После этого можно вернуться к агенту и продолжить работу от имени этого пользователя.
+
+Пока `active_user_id` передаётся, все действия выполняются от имени указанного пользователя. Чтобы вернуться к профилю интегратора — перестать передавать этот параметр.
+
 ## Writing Bot System Prompts
 
 > Load `references/writing-prompts.md` when writing or reviewing a bot's system prompt, instruction variables, Templates (Шаблоны в инструкции), or FAQ Document content.
@@ -428,3 +442,4 @@ When auditing a bot's prompt:
 | More than 10 function calls in a single dialogue turn | Simplify the scenario; delegate sub-tasks to Subordinate Bots |
 | Contradictory instructions → bot calls the same function twice | Audit instruction for conflicting conditions; ensure each trigger is unique |
 | Token overflow (context exceeds model limit) | Reduce `history_type` window, shorten instruction, split large FAQ Documents |
+| Pagination starting at 1 | All paginated methods use **0-based page numbering** — the first page is `page: 0`, not `page: 1` |
