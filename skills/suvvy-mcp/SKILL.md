@@ -301,6 +301,7 @@ Use this section during planning to choose the right tool for the job.
 | Content too large or varied to split into discrete intents | **Big Document** |
 | Structured reference data — price lists, catalogs, schedules | **Table** |
 | Bot needs to query specific rows by value | **Table** |
+| Bot hallucinates on a topic it must not answer, despite a restriction | **FAQ Document** (decoy / подменный прямой вопрос) |
 
 When in doubt between FAQ and Big Document: if you can write a clear 2–4 word title that captures the intent, it's an FAQ Document. If you can't, it's a Big Document.
 

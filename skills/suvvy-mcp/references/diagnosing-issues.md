@@ -7,6 +7,7 @@
 | Bot response doesn't match the expected scenario | Dialogue Logic section incomplete or out of order | Revise Dialogue Logic — one action per step, linked sequentially |
 | Poor response style (too formal, too verbose, wrong tone) | Response Style section too vague | Tighten the Response Style section with concrete examples |
 | Bot invents information (hallucination) | Facts live in the instruction instead of FAQ Documents | Move factual content to FAQ Documents; add "never invent data" to Restrictions |
+| Bot invents data on a forbidden topic despite an explicit restriction in the instruction | At answer time the restriction loses to the bot's urge to give the client information | Create a decoy FAQ Document (подменный прямой вопрос) titled after the topic; its body says the info doesn't exist and what to do instead — see `references/kb-faq-documents.md` |
 | Bot ignores a restriction | Restriction buried under other content | Move critical restrictions to a dedicated, clearly labeled section |
 | Custom Tool not triggered | Trigger condition missing in instruction; wrong argument types | Add explicit instruction for when to call the tool; verify argument descriptions |
 | Function called but wrong result | Step logic or variable mapping incorrect | Inspect step variables and `parse_json_variables` in the webhook step |

@@ -31,6 +31,24 @@ Each FAQ Document must:
 | Contact Us | FAQ |
 | Pricing Plans | Services We Offer |
 
+## Decoy FAQ Documents (Подменные прямые вопросы)
+
+A technique for stopping hallucinations on a **specific forbidden topic** when a restriction in the instruction alone doesn't work.
+
+**Problem:** the instruction clearly says "do NOT invent bus routes, transport numbers, or schedules — offer to call the administrator instead", but the bot still invents them. By the moment of answering, a restriction buried in the instruction loses to the bot's drive to give the client *some* information.
+
+**Fix:** create an FAQ Document whose `title_for_search` looks like the answer source for that exact topic (e.g., "Маршруты и расписание автобусов"). The bot, hoping to find the answer for the client, retrieves the file — and instead of data finds a corrective instruction:
+
+> Информации о маршрутах, номерах транспорта и расписании автобусов нет. Не называй никакие маршруты и номера. Предложи клиенту позвонить администратору.
+
+Because the retrieved text lands in the bot's context at the exact moment it is about to answer, it blocks the hallucination far more reliably than the same restriction in the instruction.
+
+**Guidelines:**
+- `title_for_search` must look like a genuine answer source for the topic — that is what lures the bot into retrieving it. A title like "Запрет на маршруты" won't be retrieved.
+- The body states plainly that the information does not exist, forbids inventing it, and says what to do instead (redirect to a human, give a safe fallback answer).
+- One decoy per forbidden topic — the usual "one file = one intent" rule applies.
+- For stubborn cases, combine with KB Keywords so retrieval is forced whenever topic words appear in the client's message.
+
 ## Files to Send
 
 Files attached to an FAQ Document that are automatically delivered to the client when the bot retrieves that document. Managed separately from the document text and linked to it afterwards.
