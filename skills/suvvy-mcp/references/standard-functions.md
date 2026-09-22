@@ -2,7 +2,7 @@
 
 Standard Functions are built-in callable functions that can be enabled on any bot without creating a Custom Tool. Once enabled, the bot can call them directly based on the conversation context.
 
-| Function | What it does | `update_instance` parameter |
+| Function | What it does | `update_instance_mcp` parameter |
 |---|---|---|
 | **Stop dialogue** | Bot stops responding in this dialogue; a human employee takes over | `stop_dialogue` |
 | **Ignore message** | Bot ignores the triggering message and sends no reply | `ignore_message` |
@@ -30,4 +30,4 @@ Enable/disable in **Доп. настройки → Стандартные фун
 Connect bot-level Follow-Up groups to dialogue events via:
 - `scheduled_event_groups_after_instance` — list of group IDs to trigger after every bot message
 - `scheduled_event_groups_after_employee` — list of group IDs to trigger after every employee message
-- `scheduled_event_work_days` — separate work schedule controlling when scheduled event groups are allowed to fire (same format as `work_days`)
+- `scheduled_event_work_days` — separate work schedule controlling when scheduled event groups are allowed to fire (same format as `work_days`). **Not available via MCP** — `update_instance_mcp`'s input schema excludes it (same reason `work_days` is excluded, see `references/bot-settings.md`); configure it in the dashboard.

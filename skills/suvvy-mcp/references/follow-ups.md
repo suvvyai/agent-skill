@@ -7,7 +7,8 @@ A Follow-Up is a message scheduled to be sent to a client at a future time. It i
 **Where Follow-Ups are configured:**
 - **Custom Tool** — as a dedicated step type inside a Custom Tool
 - **FAQ Document** — as a separate setting on the document (not in the text); the follow-up is scheduled the moment the bot retrieves that file
-- **Big Document** — same as FAQ Document: a separate setting, scheduled on retrieval
+
+> There is no retrieval-triggered follow-up on Vector Knowledge Base / Vector Document entries (see `references/kb-vector-knowledge-base.md` and `references/kb-vector-document.md`) — only FAQ Documents support it.
 
 **How it works (FAQ Document example):** A client asks about pricing → the bot retrieves the FAQ Document with prices → the system simultaneously schedules a follow-up → if the client doesn't reply within the configured time, the follow-up message is sent as a reminder.
 
@@ -19,6 +20,8 @@ A Follow-Up is a message scheduled to be sent to a client at a future time. It i
 - **LLM-generated** — generated directly by the LLM
 - **KB file call** — retrieves and sends an FAQ Document
 - **Action call** — triggers an auto-trigger Custom Tool
+- **System-generated** — an internal LLM-generated message variant used by system-level flows
+- **Run another group** — one Scheduled Event Group triggers another group instead of sending a message itself
 
 **LLM condition** — an optional natural-language condition evaluated before sending; the follow-up only fires if the condition is met (e.g., "only if the client hasn't replied yet").
 
@@ -45,6 +48,6 @@ Scheduled Event Groups are bot-level collections of Follow-Up messages that fire
 - **After agent message** — fires when the client doesn't reply to the bot
 - **After employee message** — fires when the client doesn't reply to a human employee
 
-**How groups work:** Each group contains one or more Follow-Up messages with timing and content settings. Multiple groups can be created and assigned to each trigger type. A "Расписание" (Schedule) tab controls when follow-ups are allowed to send (e.g., only during working hours). The "Все группы" tab lists all groups across the bot.
+**How groups work:** Each group contains one or more Follow-Up messages with timing and content settings. Multiple groups can be created and assigned to each trigger type (`update_instance_mcp`'s `scheduled_event_groups_after_instance` / `scheduled_event_groups_after_employee`). A "Расписание" (Schedule) tab in the dashboard controls when follow-ups are allowed to send (`scheduled_event_work_days`) — **this schedule field is not exposed via MCP**, only in the dashboard. The "Все группы" tab lists all groups across the bot.
 
-**Key difference from document-level Follow-Ups:** Document Follow-Ups fire on retrieval of a specific FAQ or Big Document. Scheduled Event Groups fire on the entire conversation's inactivity pattern, regardless of which documents were retrieved.
+**Key difference from document-level Follow-Ups:** Document Follow-Ups fire on retrieval of a specific FAQ Document. Scheduled Event Groups fire on the entire conversation's inactivity pattern, regardless of which document was retrieved.

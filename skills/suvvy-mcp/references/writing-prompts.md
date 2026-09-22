@@ -30,13 +30,15 @@ Examples:
 - `Client phone number — {client_phone}`
 - `Current date and time — {current_datetime}`
 
-Use `get_instance_available_variables` to get the list of available variables for a given bot. Additional variables from connected integrations or channels can be found by inspecting dialogue info with `get_dialogue_by_id`.
+Use `get_instance_available_variables` to get the list of available variables for a given bot. Additional variables from connected integrations or channels can be found by inspecting dialogue info with `get_dialogue_by_id` / `get_dialogue_messages_by_dialogue_id`.
 
 ## Templates in the Instruction (Шаблоны в инструкции)
 
 > When talking to the user, always call this feature **"Шаблоны в инструкции"** (or "Templates"). Do not say "Liquid" — that is the underlying engine name, not the user-facing term.
 
-Enabled by default for every bot (`instruction_settings.use_liquid: true`). When enabled, the instruction is processed as a template before being sent to the bot — allowing conditional logic based on dialogue variables. The bot never sees the template tags, only the rendered result. Disable via `instruction_settings.use_liquid: false` in `update_instance_settings` only if an instruction relies on literal `{`/`}` text that shouldn't be parsed as Liquid.
+Enabled by default for every bot (`instruction_settings.use_liquid: true`), set via `update_instance_mcp`. When enabled, the instruction is processed as a template before being sent to the bot — allowing conditional logic based on dialogue variables. The bot never sees the template tags, only the rendered result. When Liquid is turned on for a bot that already has an instruction written in single-brace format, the instruction is auto-converted: `{variable}` placeholders become `{{ variable }}`.
+
+> Whether `use_liquid: false` is accepted to turn it back off may depend on the bot's state — don't assume it always works. If an instruction needs literal `{`/`}` text that shouldn't be parsed as Liquid, test disabling it on that specific bot first rather than relying on this working.
 
 > In template mode, variables use **double braces** `{{ variable }}`, not single braces. Single-brace `{variable}` is the standard non-template format and does not work in template mode.
 
@@ -60,7 +62,7 @@ Enabled by default for every bot (`instruction_settings.use_liquid: true`). When
 
 > `instance_name`, `current_date`, `current_timezone`, `current_year`, `channel_name` and `instance_max_answer_tokens` don't vary within a single bot across dialogues — using only these (or none) keeps the instruction eligible for prompt caching. Any other variable (including `now_datetime`, `current_datetime`, `current_time`) makes the instruction dialogue-dependent and disables that caching.
 
-Additional variables from channels and integrations are available via `channel_variables` — get them by inspecting the dialogue with `get_dialogue_with_messages_by_id`.
+Additional variables from channels and integrations are available via `channel_variables` — get them by inspecting the dialogue with `get_dialogue_by_id` / `get_dialogue_messages_by_dialogue_id`.
 
 **Conditionals:**
 
@@ -120,4 +122,4 @@ The bot automatically sees all available functions without them being mentioned 
 
 Recommended format:
 - FAQ Document: `If the client asks about X, call the get_file_text("Exact Title") function`
-- Big Document search: `If the client needs information about X, call the search_in_knowledge_base("query") function`
+- Vector Knowledge Base / Vector Document search: `If the client needs information about X, call the <function_name>("query") function` — see `references/kb-vector-knowledge-base.md` / `references/kb-vector-document.md` for how the function name is defined

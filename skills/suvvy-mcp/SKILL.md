@@ -1,6 +1,6 @@
 ---
 name: suvvy-mcp
-description: Use when managing the Suvvy bot platform — creating or configuring bots, knowledge bases (FAQ Documents, Big Documents), channels, custom tools, or writing and reviewing bot system prompts via the Suvvy MCP server.
+description: Use when managing the Suvvy bot platform — creating or configuring bots, knowledge bases (FAQ Documents, Vector Knowledge Base, Vector Documents), channels, custom tools, or writing and reviewing bot system prompts via the Suvvy MCP server.
 compatibility: Requires the Suvvy MCP server to be configured and authenticated. See https://docs.suvvy.ai for setup instructions.
 ---
 
@@ -34,7 +34,7 @@ This applies to building a new bot, adding a major feature, restructuring the kn
 ```
 **Bot plan:**
 - **Role:** [what the bot does and for what company]
-- **Knowledge Base:** [FAQ Documents / Big Documents / Tables — list what will be created]
+- **Knowledge Base:** [FAQ Documents / Vector Knowledge Base / Vector Documents / Tables — list what will be created]
 - **Custom Tools:** [actions/webhooks needed — list with purpose]
 - **Bot Settings:** [key settings to configure]
 - **Dialogue Flow:** [step-by-step interaction logic]
@@ -104,7 +104,8 @@ Describe what will happen, not what API call you're making:
 | Main entity | **Bot** | `instance` | Бот, Агент | Agent |
 | Knowledge base | **Knowledge Base** | — | База знаний | БЗ |
 | Knowledge base entry (direct) | **FAQ Document** | `faq_document` | Прямой вопрос | Direct Question, ПВ |
-| Knowledge base entry (semantic) | **Big Document** | `big_document` | Большой файл | Large File, БФ |
+| Knowledge base entry (Q&A pairs, semantic) | **Vector Knowledge Base** | `vector_knowledge_base` | Векторная база знаний | VKB |
+| Knowledge base entry (file/unstructured, semantic) | **Vector Document** | `vector_document` | Векторный документ | Поиск по документам |
 | Knowledge base entry (structured) | **Table** | `table` | Таблица | — |
 | Callable action | **Custom Tool** | `custom_tool` | Кастомное действие, Действие, Воркфлоу | Action, Workflow, КД |
 | Communication surface | **Channel** | `channel` | Канал | — |
@@ -130,22 +131,22 @@ A bot is the central entity on the platform. **Always create bots without a temp
 
 Each bot has:
 - A **system prompt** (also called **Instruction**) — defines behavior, tone, and dialogue logic
-- A **knowledge base** — FAQ Documents, Big Documents, and/or Tables
+- A **knowledge base** — FAQ Documents, Vector Knowledge Base(s), Vector Documents, and/or Tables
 - **Channels** — where clients interact (messengers, chat widgets, etc.)
 - **Integrations** — pre-built connectors available on the platform; when attached to a bot, they add tools that let the bot interact with external applications (CRMs, booking systems, etc.)
 - **Custom Tools** — optional callable actions
 
 ### Key Bot Settings
 
-All bot settings are updated via `update_instance`. Setting groups: LLM & Generation, Dialogue History, Image Handling, Message Filtering & Working Hours, Employee Interception, Response Formatting, Notifications & Alerts, RAG / Vector Search, Knowledge Base Options, Security & Compliance, Cost & Performance, Channels & Integrations, Organization & Multi-profile.
+Most bot settings are updated via `update_instance_mcp`. The bot's model and LLM parameters (`llm_code`, `llm_settings.*`, `structured_answer`, `max_answer_tokens`) are updated separately via `update_instance_llm` / `set_default_instance_llm`. Setting groups: LLM & Generation, Dialogue History, Image Handling, Message Filtering, Employee Interception, Response Formatting, RAG / Vector Search, Cost & Performance, Channels & Integrations, Organization & Multi-profile. A few settings groups (Working Hours schedule, Security & Compliance, Notifications & Alerts, anti-spam limits, message-split rules) exist only in the full instance schema and are **not exposed via MCP** — dashboard-only.
 
-> Load `references/bot-settings.md` when configuring bot settings via `update_instance`.
+> Load `references/bot-settings.md` when configuring bot settings via `update_instance_mcp` — it lists exactly which fields are and aren't available through MCP.
 
 ### Functions
 
 Every bot has a unified list of callable functions. The bot can call any function from this list in accordance with its instruction. Functions come from four sources:
 
-- **Knowledge base** — `get_file_text` (FAQ Documents), `search_in_knowledge_base` (Big Documents), and per-table functions (Tables)
+- **Knowledge base** — `get_file_text` (FAQ Documents), a per-knowledge-base named function (Vector Knowledge Base), a per-search-function named function (Vector Documents), and per-table functions (Tables)
 - **Custom Tools** — manually configured actions
 - **Channels** — some channel integrations expose their own functions
 - **Integrations** — pre-built connectors add their own functions (CRM, booking, etc.)
@@ -154,12 +155,13 @@ Use `get_instance_functions` to retrieve the complete list of all callable funct
 
 ### Knowledge Base
 
-Suvvy supports three knowledge base types that can run simultaneously on the same bot.
+Suvvy supports four knowledge base types that can run simultaneously on the same bot: FAQ Documents, Vector Knowledge Base, Vector Documents, and Tables.
 
-**KB-level option — Keywords:** When enabled, specific keywords can be defined on the bot. If a client's message contains one of these keywords, the bot is required to call at least one knowledge base function before responding. Use to ensure the bot always consults the KB for certain topics rather than answering from the instruction alone.
+**FAQ-level option — Keywords (force forced retrieval):** patterns that, when matched in the client's message, require the bot to call the FAQ-search (`get_file_text`) function before responding. Configured via `get_file_text_function_settings.force_choice_pattern_list` — **dashboard-only, not available via MCP** (see `references/bot-settings.md`).
 
 > Load `references/kb-faq-documents.md` when creating or editing FAQ Documents.
-> Load `references/kb-big-documents.md` when importing or configuring Big Documents.
+> Load `references/kb-vector-knowledge-base.md` when working with Vector Knowledge Base (semantic Q&A pairs).
+> Load `references/kb-vector-document.md` when importing or configuring Vector Documents (semantic file search).
 > Load `references/kb-tables.md` when working with Tables or SQL queries.
 > Load `references/kb-tags.md` when configuring Knowledge Tags for analytics.
 
@@ -210,7 +212,7 @@ Subordinate Bots are configured exactly like regular bots but have no channel at
 
 ### Follow-Ups
 
-Follow-Ups are messages scheduled to be sent to a client at a future time. Three types: **Follow-Ups** (from Custom Tool steps or FAQ/Big Document retrieval), **Dynamic Follow-ups** (timed relative to a client-specific event date), and **Scheduled Event Groups** (bot-level, triggered by dialogue inactivity).
+Follow-Ups are messages scheduled to be sent to a client at a future time. Three types: **Follow-Ups** (from Custom Tool steps or FAQ Document retrieval — Vector Knowledge Base / Vector Document entries don't support retrieval-triggered follow-ups), **Dynamic Follow-ups** (timed relative to a client-specific event date), and **Scheduled Event Groups** (bot-level, triggered by dialogue inactivity).
 
 > Load `references/follow-ups.md` when setting up any type of follow-up or scheduled message.
 
@@ -236,7 +238,7 @@ Memory works the same as Custom Variables but without a predefined list of field
 
 ### Standard Functions
 
-Built-in callable functions: **Stop dialogue**, **Ignore message**, **Set dialogue tag**, **Call manager**. Enabled via `update_instance`. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
+Built-in callable functions: **Stop dialogue**, **Ignore message**, **Set dialogue tag**, **Call manager**. Enabled via `update_instance_mcp`. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
 
 > Load `references/standard-functions.md` when enabling Standard Functions or configuring reminder/schedule settings.
 
@@ -253,7 +255,7 @@ Any role that involves text-based client interaction is a valid use case.
 
 ### Voice Agent
 
-Suvvy supports a **Voice Agent** mode for phone call interactions (STT → LLM → TTS). Cost: ~30 rubles per minute.
+Suvvy supports a **Voice Agent** mode for phone call interactions (STT → LLM → TTS). Check current per-minute pricing with the user's account manager or the dashboard — don't quote a fixed number from memory.
 
 > Load `references/voice-agent.md` when configuring Voice Agent mode.
 
@@ -297,13 +299,14 @@ Use this section during planning to choose the right tool for the job.
 |---|---|
 | Specific, predictable user intent with a clear answer | **FAQ Document** |
 | Short structured answer, branching logic, or CRM event on retrieval | **FAQ Document** |
-| Large unstructured content — manuals, policy docs, articles | **Big Document** |
-| Content too large or varied to split into discrete intents | **Big Document** |
+| Many short Q&A-shaped facts, too many/varied for fixed FAQ titles | **Vector Knowledge Base** |
+| Large unstructured content — manuals, policy docs, articles | **Vector Document** |
+| Content too large or varied to split into discrete intents | **Vector Document** |
 | Structured reference data — price lists, catalogs, schedules | **Table** |
 | Bot needs to query specific rows by value | **Table** |
 | Bot hallucinates on a topic it must not answer, despite a restriction | **FAQ Document** (decoy / подменный прямой вопрос) |
 
-When in doubt between FAQ and Big Document: if you can write a clear 2–4 word title that captures the intent, it's an FAQ Document. If you can't, it's a Big Document.
+When in doubt: if you can write a clear 2–4 word title that captures the intent, it's an FAQ Document. If it's a large number of loosely related Q&A pairs, it's a Vector Knowledge Base. If it's unstructured file content, it's a Vector Document.
 
 ### Custom Tools vs Integrations
 
@@ -424,7 +427,7 @@ When auditing a bot's prompt:
 
 ## Uploading Files
 
-> The MCP server cannot upload files directly. Load `references/uploading-files.md` when any operation requires a file upload (importing Big Documents, FAQ Documents, Tables, Files to Send, Images, or test chat attachments).
+> The MCP server cannot upload files directly. Load `references/uploading-files.md` when any operation requires a file upload (importing Vector Documents, Vector Knowledge Base xlsx, FAQ Documents, Tables, Files to Send, Images, or test chat attachments).
 
 ## Gotchas
 
@@ -432,15 +435,15 @@ When auditing a bot's prompt:
 |---|---|
 | Factual data (prices, addresses) in system prompt | Move to FAQ Documents |
 | Function call without trigger condition | Add "If client asks/does X..." prefix |
-| Using Big Documents for short structured answers | Use FAQ Documents instead |
+| Using Vector Knowledge Base / Vector Document for short structured answers | Use FAQ Documents instead |
 | Multiple intents in one FAQ Document | One file = one intent |
 | Generic FAQ Document titles | Use specific intent-based titles (2–4 words) |
-| Calling `search_in_knowledge_base` for a known specific file | Use `get_file_text` with the exact title |
-| Using `set_memory` steps without enabling memory in bot settings | Enable `memory.is_enabled: true` via `update_instance` first |
+| Calling a Vector Knowledge Base / Vector Document search function for a known specific file | Use `get_file_text` with the exact FAQ Document title instead |
+| Using `set_memory` steps without enabling memory in bot settings | Enable `memory.is_enabled: true` via `update_instance_mcp` first |
 | `title` and `title_for_search` mismatch — bot sees wrong description | Set `title_for_search` to an intent-based phrase the bot will recognize |
 | Creating bot from a platform template | Always create without a template — pass no arguments to `create_instance` or use `template_code: "default"` |
 | Expecting `test_llm_code` model to affect live dialogues | `test_llm_code` only applies in the test chat |
-| More than 10 function calls in a single dialogue turn | Simplify the scenario; delegate sub-tasks to Subordinate Bots |
+| Hitting `parallel_tool_call_limit` (field default: 1) with a scenario needing several tool calls per turn | Raise it via `update_instance_llm`, or simplify the scenario / delegate sub-tasks to Subordinate Bots |
 | Contradictory instructions → bot calls the same function twice | Audit instruction for conflicting conditions; ensure each trigger is unique |
-| Token overflow (context exceeds model limit) | Reduce `history_type` window, shorten instruction, split large FAQ Documents |
+| Token overflow (context exceeds model limit) | Reduce `message_history_settings` window, shorten instruction, split large FAQ Documents |
 | Pagination starting at 1 | All paginated methods use **0-based page numbering** — the first page is `page: 0`, not `page: 1` |
