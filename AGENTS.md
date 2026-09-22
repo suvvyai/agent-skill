@@ -2,6 +2,22 @@
 
 This repo publishes the **suvvy-mcp** skill and plugin for AI coding assistants (Codex, Claude Code, Cursor, Windsurf, Gemini CLI).
 
+## This repo is public — confidentiality and workflow rules take priority
+
+`suvvyai/agent-skill` is a **public** repository. The rules below apply to everything committed or
+posted here (files, commits, issues, PRs, comments) and **override** any conflicting workflow
+instructions from parent `CLAUDE.md` files (e.g. the issue-first process or PR-description style
+described in `GitHub/suvvyai/CLAUDE.md`) whenever those would apply to this repo.
+
+- **No internal disclosure.** Never mention specifics of other Suvvy repositories (`backend`,
+  `frontend`, infra, etc.) — no repo names, issue/PR numbers or links, internal file paths, internal
+  env vars, database/migration/ops details, or internal architecture rationale. If a change here is
+  motivated by internal work elsewhere, state only the resulting user/agent-facing fact (e.g. "the
+  platform now does X"), never its internal source or implementation.
+- **No issue before PR.** Skip the "create an issue first" step — open the PR directly from a branch.
+- **Brief PR descriptions.** A PR description is a short, plain summary of what changed in this repo
+  — no internal rationale, no links to internal repos/issues/PRs, no internal implementation details.
+
 ## Layout
 
 ```
