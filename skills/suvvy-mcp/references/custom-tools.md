@@ -29,13 +29,14 @@ Full parameters in the MCP tool schema:
 | `instagram` | Send a direct message in response to a comment |
 | `omnidesk` | Helpdesk actions in Omnidesk (change assignee / group) |
 | `amocrm` / `kommo` | CRM actions: add/edit lead or contact, send summary note |
-| `generate_image` | Generate an image from a text prompt (model-selectable, resolution 1K/2K/4K) |
-| `edit_image` | Edit an existing image (model-selectable) |
-| `generate_text2image` | Generate image via Stability AI (fixed `ultra` model, styles: photographic/anime/cinematic/etc.) |
-| `generate_image2image` | Transform image via Stability AI |
-| `generate_search_and_replace` | Search for object in image and replace it (Stability AI) |
-| `glif_slap_logo_on_image` | Overlay a logo onto an existing image (Glif integration) |
+| `max_bot` | Bot-side actions for Max-боты (Max channel), separate from `telegram`/`vk` steps |
+| `send_message_to_new_chat` | Start a new chat on the Wazzup channel and send a message into it |
+| `query_vector_knowledge_base` | Manually query a Vector Knowledge Base and export the matched answer(s) to a variable |
+| `generate_image` | Generate an image from a text prompt. `model` selects from the image model catalog (`get_image_model_list`); `resolution` (`1K`/`2K`/`4K`) and `aspect_ratio` are optional |
+| `edit_image` | Edit an existing image passed via `file_argument`. Same `model`/`resolution`/`aspect_ratio` parameters as `generate_image`; number of input images is capped by the chosen model |
 | `base_action` | Placeholder step — no action, returns a configured static text |
+
+> There is no `generate_text2image` / `generate_image2image` / `generate_search_and_replace` / `glif_slap_logo_on_image` step — those provider-specific steps were merged into the unified `generate_image` / `edit_image` steps above. Always call `get_image_model_list` to see which models and providers are currently available before picking `model`.
 
 ## Arguments, Constants, Return Settings
 
@@ -51,9 +52,11 @@ Full parameters in the MCP tool schema:
 
 ## Auto-Trigger Settings
 
-**Bot-level first-message auto-call (`fake_call`)** — automatically fires specific Custom Tools when the **first message** of a new dialogue arrives, before the bot processes it. Configure via `update_instance` with the `fake_call` parameter:
+**Bot-level first-message auto-call (`fake_call`)** — automatically fires specific Custom Tools when the **first message** of a new dialogue arrives, before the bot processes it:
 - `fake_calls` — list of tools to auto-call (each with `custom_tool_id` or `tool_name` for integration tools, plus optional `parameters`)
 - `rules: "first_message"` — only triggers on the first message of a dialogue
+
+> **Not available via MCP.** `fake_call` is not accepted by `update_instance_mcp`. It can only be configured in the Suvvy dashboard.
 
 Use when you need guaranteed actions at dialogue start (e.g., CRM lead creation, context pre-loading) that shouldn't depend on the bot deciding to call the tool.
 
@@ -62,6 +65,7 @@ Use when you need guaranteed actions at dialogue start (e.g., CRM lead creation,
 - `new_customer_message` — on every client message
 - `new_employee_message` — on every employee message
 - `new_instance_response` — after the bot produces a response
+- `after_voice_call` — after a voice call ends
 
 Auto-triggered tools run invisibly in the background with predefined argument values baked in.
 
