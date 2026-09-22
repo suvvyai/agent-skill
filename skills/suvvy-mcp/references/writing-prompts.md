@@ -36,7 +36,7 @@ Use `get_instance_available_variables` to get the list of available variables fo
 
 > When talking to the user, always call this feature **"Шаблоны в инструкции"** (or "Templates"). Do not say "Liquid" — that is the underlying engine name, not the user-facing term.
 
-Enable via `instruction_settings.use_liquid: true` in `update_instance_settings`. When enabled, the instruction is processed as a template before being sent to the bot — allowing conditional logic based on dialogue variables. The bot never sees the template tags, only the rendered result. Currently in beta.
+Enabled by default for every bot (`instruction_settings.use_liquid: true`). When enabled, the instruction is processed as a template before being sent to the bot — allowing conditional logic based on dialogue variables. The bot never sees the template tags, only the rendered result. Disable via `instruction_settings.use_liquid: false` in `update_instance_settings` only if an instruction relies on literal `{`/`}` text that shouldn't be parsed as Liquid.
 
 > In template mode, variables use **double braces** `{{ variable }}`, not single braces. Single-brace `{variable}` is the standard non-template format and does not work in template mode.
 
@@ -46,13 +46,19 @@ Enable via `instruction_settings.use_liquid: true` in `update_instance_settings`
 
 | Variable | Type | Description |
 |---|---|---|
+| `instance_name` | string | Bot's name |
 | `channel_name` | string | Channel code (e.g., `"telegram_bot"`, `"amocrm"`, `"ozon"`) |
 | `current_datetime` | string | Formatted: "Saturday, January 02, 2025 at 16:03+03:00" |
 | `current_datetime_iso` | string | ISO 8601 format |
-| `current_datetime2` | date-time | Native date object, for use with `date` filter |
+| `current_date` | string | Formatted: "Saturday, January 02, 2025" |
+| `current_time` | string | Formatted: "16:03+03:00" |
+| `current_timezone` | string | E.g. "UTC+03:00" |
+| `now_datetime` | date-time | Native date object, for use with the `date` filter |
 | `current_year` | integer | Current year |
 | `chat_link` | string | Link to the dialogue in the Suvvy dashboard |
 | `instance_max_answer_tokens` | integer | Max tokens available for the bot's response |
+
+> `instance_name`, `current_date`, `current_timezone`, `current_year`, `channel_name` and `instance_max_answer_tokens` don't vary within a single bot across dialogues — using only these (or none) keeps the instruction eligible for prompt caching. Any other variable (including `now_datetime`, `current_datetime`, `current_time`) makes the instruction dialogue-dependent and disables that caching.
 
 Additional variables from channels and integrations are available via `channel_variables` — get them by inspecting the dialogue with `get_dialogue_with_messages_by_id`.
 
@@ -101,10 +107,12 @@ Use the default article list.
 | `strip` | `{{ name \| strip }}` | Remove surrounding whitespace |
 | `truncate: N` | `{{ text \| truncate: 50 }}` | Trim to N chars with "..." |
 | `truncatewords: N` | `{{ text \| truncatewords: 10 }}` | Trim to N words |
-| `date: format` | `{{ current_datetime2 \| date: "%A" }}` | Format date (e.g., "Monday") |
+| `date: format` | `{{ now_datetime \| date: "%A" }}` | Format date (e.g., "Monday") |
 | `plus: N` / `minus: N` | `{{ price \| plus: 100 }}` | Arithmetic |
 
 Full filter reference: [Python-Liquid2 docs](https://jg-rp.github.io/liquid/).
+
+> **Comparing dates:** Liquid has no native datetime comparison — never compare `now_datetime` directly against a string or another date in `{% if %}`. Convert both sides to a Unix timestamp with `date: "%s"` first and compare the resulting numbers, e.g. `{% if now_datetime | date: "%s" | plus: 0 > 1735689600 %}`. Use `date:` with a display format (like `"%A"`) only for output, never for comparisons.
 
 ## Function Calls in Prompts
 
