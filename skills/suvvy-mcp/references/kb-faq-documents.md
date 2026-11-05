@@ -78,4 +78,4 @@ Both import tools require a file URL obtained via the presigned upload workflow 
 
 **Set temperature on retrieval** (`events.set_temperature`): when the bot retrieves this document, LLM temperature is temporarily changed for that turn (value 0–2).
 
-**Management tools:** `create_faq_document_list` (bulk-create — faster than sequential `create_faq_document`); `get_faq_document`, `get_instance_faq_documents` (retrieve); `update_faq_document`, `delete_faq_documents` (modify/remove).
+**Management tools:** `create_faq_document` (one document per call; for many documents at once use `create_faq_documents_from_xlsx`); `get_faq_document`, `get_instance_faq_documents` (retrieve); `update_faq_document`, `delete_faq_documents` (modify/remove).
