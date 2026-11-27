@@ -62,4 +62,6 @@ A guardrail checks the bot's answer **before it is sent**. When its Call Conditi
 - `regenerate` — the bot rewrites its answer with a `hint` (up to `max_regenerate_count` times per turn, 1–3); `final_action` decides what happens when attempts run out: send a prepared `message`, `call_manager`, `stop_dialogue`
 - `replace` — the answer is replaced with a prepared `message`; optionally `call_manager`, `stop_dialogue`
 
+When a guardrail's action stops the dialogue, the dialogue gets stop reason `guardrail_triggered` — find such dialogues with `get_dialogue_list` (`stop_reason: "guardrail_triggered"`).
+
 Typical setup: create a Call Condition (e.g. `ai_message_phrase` with a forbidden word, or `llm_call_instruction` "the answer promises a discount"), then create a guardrail that references it.

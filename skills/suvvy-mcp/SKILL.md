@@ -361,7 +361,11 @@ Use a Subordinate Bot when a task is complex enough to benefit from a dedicated 
 
 A good starting point is to create the bot (`create_instance` with the `default` template), replace the template's instruction with your own first version of the system prompt, and create the initial FAQ Documents for the most common intents. That's enough to run the first test. From there, the process is iterative — add Custom Tools, Custom Variables, Memory, adjust bot settings, and keep testing.
 
+`create_instance` also takes `name` and `template_variable` — the company name substituted into the template's instruction (`{"code": "default", "company": "..."}`; for `marketplace` also `industry`). Without it, the values come from the account profile.
+
 **Copying a bot** — use `copy_instance` with the source bot's `instance_id` to create a full copy: settings, knowledge bases, tables, Custom Tools and follow-ups.
+
+**Deleting a bot** — `delete_instance` deletes the bot permanently; always confirm with the user first. A bot that another bot's Custom Tool step refers to (e.g. switching the active bot to it) can't be deleted — the error names that Custom Tool; remove the reference first.
 
 **Auto-generation (dashboard only):** the platform can generate a draft instruction and/or FAQ Documents from a text description or website URL. Use for the initial draft, then always review and edit the result before testing.
 
@@ -425,6 +429,14 @@ The **Аналитика** tab in the dashboard tracks bot performance over conf
 Two views: **Dialogs** (aggregate summary) and **Dialog logs** (per-message detail for each dialogue).
 
 > For regular accounts analytics are dashboard-only. Admins and integrators can read dashboard metrics (without dialogue contents) via `get_copilot_analytics` (`date_from`, `date_to`, optional `instance_id_list`).
+
+## Copilot Schedules and Spend Limit (admins and integrators)
+
+The dashboard Copilot can run a task on its own by schedule. These tools are available only to admin and integrator accounts:
+
+- `create_copilot_schedule` — `schedule.prompt` (the task text) and `schedule_type`: `interval` (`interval_minutes`, at least 5), `cron` (5-field expression in `timezone_name`, IANA) or `once` (`run_at`, UTC). `risk_mode` decides what the unattended run may do: `auto` (default — read-only calls run, changes are checked by a classifier that rejects clearly dangerous ones), `allow_safe` (read-only only — for reports and monitoring), `allow_all` (no limits — only when the user explicitly asks for full autonomy)
+- `get_copilot_schedules`, `update_copilot_schedule`, `delete_copilot_schedule` — manage schedules
+- `get_copilot_spend_limit` / `update_copilot_spend_limit` — Copilot spending limits: daily (`daily_limit_tokens`, day boundaries in `timezone_name`) and per period (`period_limit_tokens` together with `period_start_at` and `period_end_at`); `null` removes a limit
 
 ## Reviewing Existing System Prompts
 

@@ -65,7 +65,12 @@ Images for visual search are managed **in the dashboard only** — MCP returns t
 
 ## Importing FAQ Documents
 
-`create_faq_documents_from_xlsx` is the only bulk import. Format: first row = headers (ignored), rows 2–100 are processed. Columns are either **title, text** or **title, title_for_search, text, is_enabled** (`true`/`false`). Without the `is_enabled` column (or with an empty cell) **the document is created disabled** — enable it with `update_faq_document`. Valid rows are created even if other rows have errors — the tool then still returns an error (`TABLE_ROWS_ARE_INVALID`) listing the rows that failed validation, were empty or duplicated. Fix and re-send only those rows, not the whole file, or the created documents will be duplicated.
+`create_faq_documents_from_xlsx` is the only bulk import. Format: first row = headers (ignored), rows 2–100 are processed. Columns are either **title, text** or **title, title_for_search, text, is_enabled** (`true`/`false`). Without the `is_enabled` column (or with an empty cell) **the document is created disabled** — enable it with `update_faq_document`. Valid rows are created even if other rows have errors — the tool then still returns an error (`TABLE_ROWS_ARE_INVALID`) with row numbers in three lists:
+- `validate_error` — the row failed validation (e.g. a value is too long)
+- `empty_rows` — the row has no title; unlike `create_faq_document`, the import does not generate a title from the text
+- `duplicates` — the title or search title repeats another row of the file or an existing document of the bot
+
+Rows whose title already exists in the bot are skipped, so re-sending the whole file does not duplicate documents — the rows created earlier just come back in `duplicates`. Fix the failed rows and send them again.
 
 The file (`.xlsx`, up to 5 MB) is uploaded via the presigned upload workflow first (see `references/uploading-files.md`). Importing FAQ Documents from DOCX/PDF/other files is not available via MCP.
 

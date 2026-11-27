@@ -41,6 +41,10 @@ The bot's model and LLM-level parameters are **not** part of `update_instance_mc
 - `image_description_instruction` — custom instruction (up to 1024 chars) passed to the helper model when describing client images. Use to focus on domain-specific attributes (e.g., "describe the product name and defect type").
 - `image_search_threshold` — similarity threshold (0–20) for visual search matching in FAQ Documents. Lower = more permissive; higher = stricter.
 
+## Voice Messages from Clients
+
+Voice messages are transcribed to text before the bot sees them. `get_transcription_provider_list` lists the available transcription providers; choosing the provider and recognition language is dashboard-only.
+
 ## Message Filtering & Working Hours
 
 - `work_days` — per-day time ranges when the bot responds; silent outside configured hours. Format per day: `["HH:MM:SS-HH:MM:SS"]`. **Not available via MCP** (excluded from `update_instance_mcp`'s schema) — configure in the dashboard. The bot's time zone **is** available via `update_instance_mcp` as `timezone_name` — an IANA name such as `Europe/Moscow` or `America/Chicago` (not a numeric offset).

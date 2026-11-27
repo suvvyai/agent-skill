@@ -11,7 +11,7 @@ Custom Tools extend a bot's capabilities with arbitrary logic. Each consists of 
 | `update_custom_tool_by_id` | Change a tool: only the passed fields change, but a passed `actions`, `arguments`, `constants`, `return_settings`, `trigger_settings` or `tag_list` replaces the previous value entirely (`trigger_settings: null` removes the auto-trigger) |
 | `get_custom_tool_by_id` / `get_instance_custom_tool_list_by_instance_id` | Read one tool / all tools of a bot |
 | `delete_custom_tool_by_id` | Delete |
-| `test_webhook_action` | Run one webhook step manually: `custom_tool_id` + `body` with `action_index` (from 0) and your own `arguments` / `variables` instead of LLM-filled values. Errors of the request itself come back in the response body with `error_type`, not as a call error; a wrong index, a non-webhook step or missing arguments / variables still fail the call |
+| `test_webhook_action` | Run one webhook step manually: `custom_tool_id` + `body` with `action_index` (from 0) and your own `arguments` / `variables` instead of LLM-filled values; file arguments take Files to Send IDs in `file_id_list_by_argument` (`{"<argument name>": [file IDs]}`). Errors of the request itself come back in the response body with `error_type`, not as a call error; a wrong index, a non-webhook step or missing arguments / variables still fail the call |
 
 > **A new Custom Tool is created disabled** (`is_enabled` defaults to `false`). Pass `is_enabled: true` when creating it, or enable it afterwards — otherwise the bot never sees it.
 
