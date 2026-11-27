@@ -361,7 +361,11 @@ Use a Subordinate Bot when a task is complex enough to benefit from a dedicated 
 
 A good starting point is to create the bot (`create_instance` with the `default` template), replace the template's instruction with your own first version of the system prompt, and create the initial FAQ Documents for the most common intents. That's enough to run the first test. From there, the process is iterative — add Custom Tools, Custom Variables, Memory, adjust bot settings, and keep testing.
 
+`create_instance` also takes `name` and `template_variable` — the company name substituted into the template's instruction (`{"code": "default", "company": "..."}`; for `marketplace` also `industry`). Without it, the values come from the account profile.
+
 **Copying a bot** — use `copy_instance` with the source bot's `instance_id` to create a full copy: settings, knowledge bases, tables, Custom Tools and follow-ups.
+
+**Deleting a bot** — `delete_instance` deletes the bot permanently; always confirm with the user first. A bot that another bot's Custom Tool step refers to (e.g. switching the active bot to it) can't be deleted — the error names that Custom Tool; remove the reference first.
 
 **Auto-generation (dashboard only):** the platform can generate a draft instruction and/or FAQ Documents from a text description or website URL. Use for the initial draft, then always review and edit the result before testing.
 
@@ -424,7 +428,7 @@ The **Аналитика** tab in the dashboard tracks bot performance over conf
 
 Two views: **Dialogs** (aggregate summary) and **Dialog logs** (per-message detail for each dialogue).
 
-> For regular accounts analytics are dashboard-only. Admins and integrators can read dashboard metrics (without dialogue contents) via `get_copilot_analytics` (`date_from`, `date_to`, optional `instance_id_list`).
+> Analytics are dashboard-only.
 
 ## Reviewing Existing System Prompts
 
