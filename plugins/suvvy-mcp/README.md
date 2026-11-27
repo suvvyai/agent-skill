@@ -1,6 +1,6 @@
 # Suvvy MCP
 
-Suvvy bot platform integration for AI assistants — manage bots, knowledge bases, channels, and custom tools via the [Suvvy MCP server](https://docs.suvvy.ai).
+Suvvy bot platform integration for AI assistants — manage bots, knowledge bases, custom tools, follow-ups and voice agents via the [Suvvy MCP server](https://docs.suvvy.ai).
 
 ## Installation
 
@@ -107,7 +107,7 @@ Add the `suvvy-mcp` skill standalone (without the MCP, skill-only):
 ## After Installation
 
 1. Restart your IDE to activate the MCP server
-2. Authenticate: ask your AI assistant to call `authenticate` (it will open a browser login)
+2. Authenticate: the server uses OAuth — your AI assistant opens a browser login on first use (in Claude Code, run `/mcp` and choose Suvvy to sign in)
 3. Start managing your bots
 
 ## Documentation

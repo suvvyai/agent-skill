@@ -6,6 +6,8 @@ Knowledge Tags are labels that can be attached to **FAQ Documents**. When the bo
 
 **Example:** Create a tag "Interested in pricing" and attach it to the "Prices" FAQ Document. After a month you can see in analytics how many dialogues had price-interested clients vs. empty dialogues with no retrieved documents.
 
-Tags are configured and created independently, then linked to FAQ Documents. Besides `title`, a tag also has `color` and an (deprecated) `emoji_icon` field.
+Tags are created independently, then linked to FAQ Documents via `faq_document.tags` (tag IDs) in `create_faq_document` / `update_faq_document` — in an update, the list replaces the previous one entirely. Tag fields: `title`, `description`, `color` (CSS color name, hex or rgb; random if omitted). `update_knowledge_tag` takes the changes in a `tag` object.
+
+Tags can also be set on a dialogue by the `set_dialogue_tag` standard function and by Custom Tools (`tag_list`), and dialogues can be filtered by them (`get_dialogue_list`, `tags`).
 
 **Management tools:** `create_knowledge_tag`, `get_knowledge_tags`, `get_knowledge_tag`, `update_knowledge_tag`, `delete_knowledge_tag`.

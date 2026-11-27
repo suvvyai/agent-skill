@@ -13,8 +13,8 @@ The system prompt is sent to the LLM on every single turn. A bloated instruction
 
 As a dialogue grows, more and more message history is sent to the LLM each turn. Long dialogues become exponentially expensive.
 
-- Use `history_type: last_messages` or `last_time` instead of `enabled` (full history) to cap the context window at an appropriate size
-- Save important information gathered during the dialogue into Custom Variables or Memory (`set_memory`) instead of relying on the bot to "remember" it from a long history — this allows using a shorter context window without losing critical facts
+- Set `message_history_settings.type` to `last_messages` or `last_time` instead of `enabled` (full history) to cap the context window (`update_instance_mcp`; pass all three fields: `type`, `last_messages_first_index`, `time_minutes`)
+- Save important information gathered during the dialogue into Custom Variables or Memory (`set_memory` step) instead of relying on the bot to "remember" it from a long history — this allows using a shorter context window without losing critical facts
 
 ## Common Inefficiency: Excessive KB Calls
 
@@ -40,11 +40,11 @@ English text is processed ~3–4× more efficiently by most LLMs compared to Rus
 
 ## Other Levers
 
-- Use a cheaper model (`llm_code`) when the task doesn't require a powerful one; or use `set_default_llm: "price"` to automatically pick the cheapest available model
-- `llm_settings.reasoning_effort: "minimal"` or `"low"` — fewer reasoning tokens for models that support extended thinking
-- `merge_message_time_seconds` — merge rapid-fire client messages before responding; avoids one LLM call per message burst
-- `work_days` — bot is silent outside working hours; no messages processed = no cost
+- Use a cheaper model when the task doesn't require a powerful one: `llm_code` via `update_instance_llm`, or `set_default_instance_llm` with `preset: "price"` to switch to the platform's default budget model
+- `llm_settings.reasoning_effort: "minimal"` or `"low"` (via `update_instance_llm`) — fewer reasoning tokens for models that support extended thinking
+- `merge_message_time_seconds` (`update_instance_mcp`) — merge rapid-fire client messages before responding; avoids one LLM call per message burst
+- Working hours (dashboard only) — bot is silent outside working hours; no messages processed = no cost
 - `save_function_messages: false` — exclude function call messages from dialogue history
-- `parallel_tool_call_limit: 1` — cap tool calls per turn to reduce token usage from parallel calls
+- `parallel_tool_call_limit: 1` (via `update_instance_llm`) — cap tool calls per turn to reduce token usage from parallel calls
 
 **Pricing reference:** Use `get_balance_token_rates` to get the current token pricing for each model.

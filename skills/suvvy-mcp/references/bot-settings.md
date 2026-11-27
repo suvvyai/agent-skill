@@ -10,7 +10,8 @@ The bot's model and LLM-level parameters are **not** part of `update_instance_mc
 - `llm_settings.reasoning_effort` — reasoning depth: `minimal` / `low` / `medium` / `high`
 - `llm_settings.web_search` — enable internet search (configure `country` and optionally `allowed_domains`)
 - Use `get_llm_list` to fetch the current list of available models before setting `llm_code` or `test_llm_code`.
-- `set_default_instance_llm` — shortcut to pick a model automatically: `price` (cheapest available) or `quality` (highest quality available). Use instead of specifying `llm_code` directly.
+- `set_default_instance_llm` — shortcut to switch to one of the platform's default models: `preset: "price"` (default budget model) or `preset: "quality"` (default quality model). These are fixed platform defaults, not a computed cheapest / best model, and the result can differ for bots with model restrictions — check `llm_code` in the response. Use instead of specifying `llm_code` directly.
+- `update_instance_llm` takes the changes in a `body` object (pass only changed fields) and requires a plan that allows changing model settings — otherwise `USER_ACTION_FORBIDDEN`; `set_default_instance_llm` has no such gate.
 - `randomness` — response randomness (integer 0–100): `0` = most deterministic, `10` = balanced, `20` = creative. The UI shows this as Стабильность / Сбалансированность / Креативность. (Also settable via `update_instance_mcp` — present in both request schemas.)
 - `llm_settings.verbosity` — response length: `low`, `medium`, `high`. Use `low` for support bots and marketplaces, `high` for detailed explanations.
 - `max_answer_tokens` — hard cap on tokens in the bot's response.
@@ -19,7 +20,7 @@ The bot's model and LLM-level parameters are **not** part of `update_instance_mc
 
 ## Dialogue History — via `update_instance_mcp`
 
-`message_history_settings.type` controls how much context is passed to the LLM each turn (nested object, not flat fields):
+`message_history_settings` controls how much context is passed to the LLM each turn. It is an object with **three required fields** — `type`, `time_minutes`, `last_messages_first_index` — pass all three even if only one matters for the chosen type:
 
 | Value | Behavior |
 |---|---|
@@ -28,22 +29,23 @@ The bot's model and LLM-level parameters are **not** part of `update_instance_mc
 | `last_time` | Last N minutes — set duration via `message_history_settings.time_minutes` |
 | `last_messages` | Last N messages — set count via `message_history_settings.last_messages_first_index` |
 
-- `add_datetime_system_messages` — automatically prepend current date and time to every system message. Useful when the bot needs to be aware of the current time without explicit `{current_datetime}` in the instruction.
+- `add_datetime_system_messages` — automatically prepend current date and time to every system message. Useful when the bot needs to be aware of the current time without explicit `{{ current_datetime }}` in the instruction.
 
 ## Image Handling — via `update_instance_mcp`
 
 - `image_description_mode`:
   - `disabled` — images from clients are ignored
   - `vision` — LLM sees the image directly (requires a vision-capable model)
-  - `if_not_found_in_knowledge_base` — first tries to match the image to an FAQ Document; if no match, a helper model describes the image and passes the text to the bot; use for models without native vision support
+  - `if_not_found_in_knowledge_base` — first tries to match the image to an FAQ Document's images; if no match, a helper model describes the image and passes the text to the bot; use for models without native vision support. Images for visual search are attached to FAQ Documents in the dashboard only — MCP can read them (`connected_images`) but not add or delete them.
   - `always` — always describe images with a helper model regardless of KB match
 - `image_description_instruction` — custom instruction (up to 1024 chars) passed to the helper model when describing client images. Use to focus on domain-specific attributes (e.g., "describe the product name and defect type").
 - `image_search_threshold` — similarity threshold (0–20) for visual search matching in FAQ Documents. Lower = more permissive; higher = stricter.
 
 ## Message Filtering & Working Hours
 
-- `work_days` — per-day time ranges when the bot responds; silent outside configured hours. Format per day: `["HH:MM:SS-HH:MM:SS"]`. **Not available via MCP** (excluded from `update_instance_mcp`'s schema) — configure in the dashboard. `timezone` (offset from UTC, e.g. `3` for Moscow) **is** available via `update_instance_mcp`.
-- `ignore_customer_patterns` / `ignore_employee_patterns` — regex patterns; matching messages are silently skipped. Each entry: `pattern`, `can_be_part_of_word`, `dont_add_message` (if true, also excluded from dialogue history). Available via `update_instance_mcp`.
+- `work_days` — per-day time ranges when the bot responds; silent outside configured hours. Format per day: `["HH:MM:SS-HH:MM:SS"]`. **Not available via MCP** (excluded from `update_instance_mcp`'s schema) — configure in the dashboard. The bot's time zone **is** available via `update_instance_mcp` as `timezone_name` — an IANA name such as `Europe/Moscow` or `America/Chicago` (not a numeric offset).
+- `merge_message_time_seconds` (0–120) — wait this long before processing, merging rapid client messages into one turn. Available via `update_instance_mcp`.
+- `ignore_customer_patterns` / `ignore_employee_patterns` — patterns; matching messages are silently skipped (`ignore_employee_patterns` = employee messages that do not interrupt the bot). Each entry: `pattern`, `can_be_part_of_word`, `dont_add_message` (if true, also excluded from dialogue history). Available via `update_instance_mcp`.
 - `stop_dialogue_patterns` — if a client message matches, the bot stops responding until resumed. Available via `update_instance_mcp`.
 - `resume_customer_dialogue_patterns` / `resume_employee_dialogue_patterns` — patterns that re-activate a stopped bot. Available via `update_instance_mcp`.
 
@@ -52,7 +54,7 @@ The bot's model and LLM-level parameters are **not** part of `update_instance_mc
 - `interception_by_employee` — when a manager writes in the same channel chat, the system detects it and freezes the bot so the human can handle the conversation directly.
 - `ignored_employee_messages_count` — number of first employee messages to ignore before triggering interception.
 - `sleep_time_minutes` — auto-resume: after this many minutes of employee inactivity, the bot regains control. Set to `-1` to disable auto-resume.
-- **Additional interception conditions**: the bot can be configured to not reply to the specific message that triggered the interception, or to specify phrases that will not trigger interception.
+- Employee messages matching `ignore_employee_patterns` don't trigger interception.
 
 ## Response Formatting
 
@@ -63,18 +65,18 @@ The bot's model and LLM-level parameters are **not** part of `update_instance_mc
 - `message_header` / `message_footer` — static text prepended or appended to every bot reply. Available via `update_instance_mcp`.
 - `starting_message_list` — up to 10 suggestion buttons at dialogue start (each with `title` and `text`). Useful for website widgets and Telegram bots. Available via `update_instance_mcp`.
 - `replacement_patterns` — find/replace pairs applied to all bot responses. Each entry: `pattern`, `replacement`, `can_be_part_of_word` (default false). Available via `update_instance_mcp`.
-- There is no general-purpose bot-level `fallback_message` field anymore. A `fallback_message` now only exists per-check inside Prediction Guardrails (`create/update_instance_prediction_guardrail`, not covered by this skill yet) — it is not part of `update_instance_mcp`.
+- There is no bot-level `fallback_message` field. A prepared replacement answer is configured per check in Answer Guardrails (`action.message` / `action.final_action.message`) — see `references/call-conditions.md`.
 
 ## Notifications & Alerts
 
 - **`notify_on_call` / `notify_if_called`** (on Custom Tools and FAQ Documents): sends a notification to the manager's Telegram or Messenger MAX when the tool or document is triggered. These live on the Custom Tool / FAQ Document themselves (`create/update_custom_tool_by_id`, `create/update_faq_document`), not on the instance — available via MCP.
-- **`refuse_on_call` / `refuse_if_called`** (on Custom Tools and FAQ Documents): bot skips the reply for the specific triggering message. Dialogue continues normally on subsequent messages. On FAQ Documents, setting an empty text body (`""`) achieves the same silent-retrieval effect. Available via MCP (same tools as above).
+- **`refuse_on_call` / `refuse_if_called`** (on Custom Tools and FAQ Documents): bot skips the reply for the specific triggering message. Dialogue continues normally on subsequent messages. Available via MCP (same tools as above).
 - `notification_settings` — instance-level Telegram/Messenger MAX notification templates (`summary_instruction`, `document_used_template`, template variables `{bot}`, `{source}`, `{document}`, `{suvvy_chat}`, `{summary}`). **Not available via MCP** — excluded from `update_instance_mcp`; dashboard-only.
 
 ## RAG / Vector Search Settings
 
 There are no instance-level `vector_search_*` fields anymore — that Big-Document-era mechanism is gone. Retrieval tuning now lives on the retrieval object itself:
-- **Vector Knowledge Base** — `search_return_top_n` / `search_similarity_threshold` per knowledge base, set via `update_vector_knowledge_base`. See `references/kb-vector-knowledge-base.md`.
+- **Vector Knowledge Base** — search depth and threshold are not configurable via MCP. See `references/kb-vector-knowledge-base.md`.
 - **Vector Document** — `top_n` / `similarity_threshold` per search function, set via `update_vector_document_search_function`. See `references/kb-vector-document.md`.
 
 ## Knowledge Base Options

@@ -1,6 +1,6 @@
 ---
 name: suvvy-mcp
-description: Use when managing the Suvvy bot platform — creating or configuring bots, knowledge bases (FAQ Documents, Vector Knowledge Base, Vector Documents), channels, custom tools, or writing and reviewing bot system prompts via the Suvvy MCP server.
+description: Use when managing the Suvvy bot platform — creating or configuring bots, knowledge bases (FAQ Documents, Vector Knowledge Base, Vector Documents, Tables), custom tools, call conditions and answer guardrails, follow-ups, voice agents, or writing and reviewing bot system prompts via the Suvvy MCP server.
 compatibility: Requires the Suvvy MCP server to be configured and authenticated. See https://docs.suvvy.ai for setup instructions.
 ---
 
@@ -49,8 +49,8 @@ This applies to building a new bot, adding a major feature, restructuring the kn
 
 **Function and parameter names** — the user should never see these:
 - ❌ "Я вызову `create_faq_document` с параметром `title_for_search`…"
-- ❌ "Обновлю `llm_settings.temperature_mode` на `stability`"
-- ❌ "Установлю `history_type: last_messages`"
+- ❌ "Обновлю `randomness` на `0`"
+- ❌ "Установлю `message_history_settings.type: last_messages`"
 
 **Internal object IDs** — keep them behind the scenes:
 - ❌ "ID бота: `a1b2c3d4-...`"
@@ -63,8 +63,8 @@ Describe what will happen, not what API call you're making:
 | Instead of this | Say this |
 |---|---|
 | "Вызову `create_instance` для создания бота" | "Создаю бота" |
-| "Установлю `history_type: last_messages`" | "Настрою бота так, чтобы он помнил только последние N сообщений" |
-| "Обновлю `llm_settings.temperature_mode: stability`" | "Сделаю ответы бота стабильными и предсказуемыми" |
+| "Установлю `message_history_settings.type: last_messages`" | "Настрою бота так, чтобы он помнил только последние N сообщений" |
+| "Обновлю `randomness: 0`" | "Сделаю ответы бота стабильными и предсказуемыми" |
 | "Создам `faq_document` с `title_for_search`" | "Добавлю в базу знаний документ о…" |
 | "Добавлю шаг типа `webhook` в Custom Tool" | "Настрою обращение к вашему API при…" |
 
@@ -114,12 +114,14 @@ Describe what will happen, not what API call you're making:
 | Sub-agent bot | **Subordinate Bot** | — | Подчиненный бот | Slave bot |
 | Multi-agent architecture | **Multi-agent System** | — | Мультиагентная система | — |
 | Scheduled outbound message | **Follow-Up** | — | Фоллоу Ап, Отложенное сообщение | Ping, Scheduled Message |
-| Instruction template engine | **Templates** | `use_liquid` | Шаблоны в инструкции | — |
+| Instruction template engine | **Templates** | `{{ variable }}`, `{% if %}` | Шаблоны в инструкции | — |
+| Reusable trigger condition | **Call Condition** | `call_condition` | Условие вызова | — |
+| Pre-send check of the bot's answer | **Answer Guardrail** | `instance_prediction_guardrail` | Проверка ответа | Prediction Guardrail |
 | Dialog-scoped named field | **Custom Variable** | `custom_variable` | Пользовательская переменная, Поле диалога | Dialog field |
 | Bot-defined dialog memory | **Memory** | — | Память | Dynamic Variables |
 | KB analytics label | **Knowledge Tag** | `knowledge_tag` | Тег | Tag |
 | File attached to FAQ Document for delivery | **File to Send** | `file_to_send` | Файл для отправки | — |
-| Image attached to FAQ Document for visual search | **Image** | `image` | Картинка | — |
+| Image attached to FAQ Document for visual search (dashboard-only) | **Image** | `connected_images` | Картинка | — |
 
 > In MCP tool names and API parameters, always use the code/MCP term (e.g., `instance_id`, `faq_document`).
 
@@ -127,7 +129,7 @@ Describe what will happen, not what API call you're making:
 
 ### Bots (Instances)
 
-A bot is the central entity on the platform. **Always create bots without a template** — start from a blank configuration and build up from scratch.
+A bot is the central entity on the platform. Create bots with the generic `default` template (a specialized one — `voice`, `yclients`, `marketplace` — only when it fits) and then replace the template's instruction with your own, building up from there.
 
 Each bot has:
 - A **system prompt** (also called **Instruction**) — defines behavior, tone, and dialogue logic
@@ -138,7 +140,7 @@ Each bot has:
 
 ### Key Bot Settings
 
-Most bot settings are updated via `update_instance_mcp`. The bot's model and LLM parameters (`llm_code`, `llm_settings.*`, `structured_answer`, `max_answer_tokens`) are updated separately via `update_instance_llm` / `set_default_instance_llm`. Setting groups: LLM & Generation, Dialogue History, Image Handling, Message Filtering, Employee Interception, Response Formatting, RAG / Vector Search, Cost & Performance, Channels & Integrations, Organization & Multi-profile. A few settings groups (Working Hours schedule, Security & Compliance, Notifications & Alerts, anti-spam limits, message-split rules) exist only in the full instance schema and are **not exposed via MCP** — dashboard-only.
+Most bot settings are updated via `update_instance_mcp` (changes in a `body` object — pass only the fields you change). The bot's model and LLM parameters (`llm_code`, `test_llm_code`, `llm_settings.*`, `structured_answer`, `max_answer_tokens`, `parallel_tool_call_limit`) are updated separately via `update_instance_llm` / `set_default_instance_llm` (`preset: "price"` or `"quality"` — the platform's default budget / quality model). Setting groups: LLM & Generation, Dialogue History, Image Handling, Message Filtering, Employee Interception, Response Formatting, RAG / Vector Search, Cost & Performance, Channels & Integrations, Organization & Multi-profile. A few settings groups (Working Hours schedule, Security & Compliance, Notifications & Alerts, anti-spam limits, message-split rules) exist only in the full instance schema and are **not exposed via MCP** — dashboard-only.
 
 > Load `references/bot-settings.md` when configuring bot settings via `update_instance_mcp` — it lists exactly which fields are and aren't available through MCP.
 
@@ -146,7 +148,7 @@ Most bot settings are updated via `update_instance_mcp`. The bot's model and LLM
 
 Every bot has a unified list of callable functions. The bot can call any function from this list in accordance with its instruction. Functions come from four sources:
 
-- **Knowledge base** — `get_file_text` (FAQ Documents), a per-knowledge-base named function (Vector Knowledge Base), a per-search-function named function (Vector Documents), and per-table functions (Tables)
+- **Knowledge base** — `get_file_text` (FAQ Documents), `<function_name>_vector_knowledge_base` (each Vector Knowledge Base), `<name>_vector_document_search` (each Vector Document search function), and `<function_name>_table` / `_edit_table` / `_append_table` (Tables)
 - **Custom Tools** — manually configured actions
 - **Channels** — some channel integrations expose their own functions
 - **Integrations** — pre-built connectors add their own functions (CRM, booking, etc.)
@@ -170,6 +172,14 @@ Suvvy supports four knowledge base types that can run simultaneously on the same
 Custom Tools extend a bot's capabilities with arbitrary logic. Each consists of one or more sequential Steps that can pass data to each other via variables. Step types include webhooks, bot calls, table queries, CRM actions, payment links, image generation, and more.
 
 > Load `references/custom-tools.md` when creating or configuring Custom Tools.
+
+### Call Conditions and Answer Guardrails
+
+A **Call Condition** is a separate object on the bot ("fire only if…": variable value, function/document called, time, channel, phrase, LLM-checked instruction, message counters, dialogue cost). It is referenced by ID from Custom Tool auto-triggers, follow-up events and Answer Guardrails. Groups of conditions combine with AND, conditions inside a group with OR.
+
+An **Answer Guardrail** checks the bot's answer before it is sent; when its Call Condition is met, the answer is regenerated with a hint or replaced with a prepared message.
+
+> Load `references/call-conditions.md` when setting up conditional triggers, conditional follow-ups or answer guardrails.
 
 ### Integrations
 
@@ -197,6 +207,8 @@ The active bot in a dialog can be switched mid-conversation via a Custom Tool st
 
 **Dialogue ratings** — when a bot uses the `request_dialogue_rate` Custom Tool step, it generates a rating link. Use `get_dialogue_rate_list` to fetch all ratings, or `get_dialogue_rate_list_by_dialogue_id` for a specific dialogue.
 
+**Pagination** — dialogue and rating lists (`get_dialogue_list`, `get_dialogue_messages_by_dialogue_id`, `search_dialogues_by_message_filter`, `get_dialogue_rate_list`) and the Vector Knowledge Base pair and update-report lists (`list_vector_knowledge_base_files`, `list_vector_knowledge_base_update_reports`) use a cursor: `elements` (page size, up to 100) and `last_id` — the ID of the last item of the previous page. Two exceptions: for `search_dialogues_by_message_filter` it is the `message.id` of the last item; for `get_dialogue_messages_by_dialogue_id` with `direction: "ascending"` it is the ID of the **first** item of the previous page, because every page is returned newest-first. Omit `last_id` for the first page. Other lists (bots, FAQ Documents, Tables, Vector Documents, Vector Knowledge Bases) are returned whole.
+
 **Active Follow-Ups in a dialogue** — use `get_active_reminder_list_by_dialogue_id` and `get_scheduled_messages_for_dialogue_by_dialogue_id` to inspect pending Follow-Ups. Use `cancel_reminders_in_dialogue` to cancel them.
 
 ### Subordinate Bots
@@ -212,7 +224,7 @@ Subordinate Bots are configured exactly like regular bots but have no channel at
 
 ### Follow-Ups
 
-Follow-Ups are messages scheduled to be sent to a client at a future time. Three types: **Follow-Ups** (from Custom Tool steps or FAQ Document retrieval — Vector Knowledge Base / Vector Document entries don't support retrieval-triggered follow-ups), **Dynamic Follow-ups** (timed relative to a client-specific event date), and **Scheduled Event Groups** (bot-level, triggered by dialogue inactivity).
+Follow-Ups are messages scheduled to be sent to a client at a future time. They are built from **Scheduled Event Groups** (ordered events with timing and action, managed via `create_scheduled_event_group` and related tools), attached after bot/employee messages or to FAQ Document retrieval. **Dynamic Follow-ups** are created by the `add_reminder` Custom Tool step and timed relative to a client-specific date.
 
 > Load `references/follow-ups.md` when setting up any type of follow-up or scheduled message.
 
@@ -227,18 +239,20 @@ Custom Variables are named fields that persist for the entire duration of a dial
 - **Typed**: each variable has a type — `string`, `integer`, `number`, `boolean`
 - **`show_to_bot`**: whether this variable is included in the bot's context (default: true). Set to false to hide internal variables from the LLM.
 - **`is_writeable_by_bot`**: whether the bot can set this variable directly (default: true). Set to false to make it read-only for the bot.
+- Managed via `create_custom_variable`, `get_instance_custom_variable_list_by_instance_id`, `get_custom_variable_by_id`, `update_custom_variable_by_id`, `delete_custom_variable_by_id`; how the variables block appears in the bot's context — `update_custom_variable_settings` (requires a plan that allows advanced bot settings).
+- In a `set_custom_variables` Custom Tool step, variables are referenced by **ID**, not by name.
 
 ### Memory (Dynamic Variables)
 
 Memory works the same as Custom Variables but without a predefined list of field names. The bot sets key-value pairs freely — it decides both the key name and the value. Like Custom Variables, memory entries persist for the entire dialog.
 
-- **Must be explicitly enabled** in bot settings (`memory.is_enabled = true`); disabled by default — `set_memory` steps will not work until this is turned on
+- **Must be explicitly enabled** in bot settings (`memory.is_enabled = true` via `update_instance_mcp`); disabled by default — `set_memory` steps will not work until this is turned on
 - Use when the set of fields cannot be known in advance or varies per conversation
 - Optional: `clear_with_context` — clears memory entries when the dialogue context is reset
 
 ### Standard Functions
 
-Built-in callable functions: **Stop dialogue**, **Ignore message**, **Set dialogue tag**, **Call manager**. Enabled via `update_instance_mcp`. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
+Built-in callable functions: **Stop dialogue**, **Ignore message**, **Set dialogue tag**, **Call manager**, **Add to blacklist**. Enabled via `update_instance_mcp`. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
 
 > Load `references/standard-functions.md` when enabling Standard Functions or configuring reminder/schedule settings.
 
@@ -279,8 +293,8 @@ Broadcasts send outbound messages to existing dialogue participants based on fil
 
 1. Пользователь называет почту или название компании нужного аккаунта.
 2. Агент вызывает `get_user_list`, передавая почту или название компании в качестве фильтра. **Страницы нумеруются с нуля: первая страница — `page: 0`.**
-3. Агент находит нужного пользователя в ответе и запоминает его `_id`.
-4. Во всех последующих MCP-запросах агент передаёт этот `_id` в опциональном параметре `active_user_id`.
+3. Агент находит нужного пользователя в ответе и запоминает его `id`.
+4. Во всех последующих MCP-запросах агент передаёт этот `id` в опциональном параметре `active_user_id`.
 5. Если при вызове любого тула с `active_user_id` возвращается ошибка `AUTH_PARTNER_ACCESS_FORBIDDEN` — интегратору нужно вручную зайти в личный кабинет Suvvy и переключиться в аккаунт этого пользователя, введя его пароль. После этого можно вернуться к агенту и продолжить работу от имени этого пользователя.
 
 Пока `active_user_id` передаётся, все действия выполняются от имени указанного пользователя. Чтобы вернуться к профилю интегратора — перестать передавать этот параметр.
@@ -330,7 +344,7 @@ Use auto-trigger when the tool should fire **without the bot deciding** — e.g.
 
 ### When to use Templates in the instruction (Шаблоны в инструкции)
 
-Use Templates when a single bot serves **multiple channels or contexts** that need different instruction content — different product codes per marketplace, different tone per channel, different rules based on time or client data. For a single-channel bot with no context-dependent variation, plain instruction variables (`{variable}`) are sufficient.
+The instruction is always a template: variables are written as `{{ variable }}` (single braces `{variable}` are **not** substituted). Use template logic (`{% if %}`, `{% case %}`) when a single bot serves **multiple channels or contexts** that need different instruction content — different product codes per marketplace, different tone per channel, different rules based on time or client data. `get_instance_available_variables` lists the variables a bot can use.
 
 ### When to use Subordinate Bots / Multi-agent System
 
@@ -345,9 +359,9 @@ Use a Subordinate Bot when a task is complex enough to benefit from a dedicated 
 
 ### Getting Started
 
-A good starting point is to create the bot (`create_instance`, always without a template), write a first version of the system prompt, and create the initial FAQ Documents for the most common intents. That's enough to run the first test. From there, the process is iterative — add Custom Tools, Custom Variables, Memory, adjust bot settings, and keep testing.
+A good starting point is to create the bot (`create_instance` with the `default` template), replace the template's instruction with your own first version of the system prompt, and create the initial FAQ Documents for the most common intents. That's enough to run the first test. From there, the process is iterative — add Custom Tools, Custom Variables, Memory, adjust bot settings, and keep testing.
 
-**Copying a bot** — use `create_instance` with `from_instance` (an existing bot's ID) to create a full copy including instruction, knowledge base, and settings.
+**Copying a bot** — use `copy_instance` with the source bot's `instance_id` to create a full copy: settings, knowledge bases, tables, Custom Tools and follow-ups.
 
 **Auto-generation (dashboard only):** the platform can generate a draft instruction and/or FAQ Documents from a text description or website URL. Use for the initial draft, then always review and edit the result before testing.
 
@@ -410,7 +424,7 @@ The **Аналитика** tab in the dashboard tracks bot performance over conf
 
 Two views: **Dialogs** (aggregate summary) and **Dialog logs** (per-message detail for each dialogue).
 
-> Analytics are read-only and not accessible via MCP. Monitor via the Suvvy dashboard.
+> For regular accounts analytics are dashboard-only. Admins and integrators can read dashboard metrics (without dialogue contents) via `get_copilot_analytics` (`date_from`, `date_to`, optional `instance_id_list`).
 
 ## Reviewing Existing System Prompts
 
@@ -427,7 +441,7 @@ When auditing a bot's prompt:
 
 ## Uploading Files
 
-> The MCP server cannot upload files directly. Load `references/uploading-files.md` when any operation requires a file upload (importing Vector Documents, Vector Knowledge Base xlsx, FAQ Documents, Tables, Files to Send, Images, or test chat attachments).
+> The MCP server does not accept file contents. Load `references/uploading-files.md` when any operation requires a file upload (importing Vector Documents, Vector Knowledge Base xlsx, FAQ Documents xlsx, Tables, Files to Send, or attachments in the test chat and employee messages).
 
 ## Gotchas
 
@@ -440,10 +454,13 @@ When auditing a bot's prompt:
 | Generic FAQ Document titles | Use specific intent-based titles (2–4 words) |
 | Calling a Vector Knowledge Base / Vector Document search function for a known specific file | Use `get_file_text` with the exact FAQ Document title instead |
 | Using `set_memory` steps without enabling memory in bot settings | Enable `memory.is_enabled: true` via `update_instance_mcp` first |
+| Writing `{variable}` in the instruction | Use `{{ variable }}` — single braces stay in the prompt as literal text |
+| Custom Tool created but never called | New tools are created with `is_enabled: false` — enable it |
+| Passing a model setting to `update_instance_mcp` | `llm_code`, `test_llm_code`, `llm_settings`, `max_answer_tokens`, `parallel_tool_call_limit`, `structured_answer` go to `update_instance_llm` |
 | `title` and `title_for_search` mismatch — bot sees wrong description | Set `title_for_search` to an intent-based phrase the bot will recognize |
-| Creating bot from a platform template | Always create without a template — pass no arguments to `create_instance` or use `template_code: "default"` |
+| Creating a bot from a specialized template by accident | `create_instance` always applies a template (default `template_code: "default"`, which fills a generic instruction, greetings and model); use `voice` / `yclients` / `marketplace` only when needed, then rewrite the instruction |
 | Expecting `test_llm_code` model to affect live dialogues | `test_llm_code` only applies in the test chat |
 | Hitting `parallel_tool_call_limit` (field default: 1) with a scenario needing several tool calls per turn | Raise it via `update_instance_llm`, or simplify the scenario / delegate sub-tasks to Subordinate Bots |
 | Contradictory instructions → bot calls the same function twice | Audit instruction for conflicting conditions; ensure each trigger is unique |
-| Token overflow (context exceeds model limit) | Reduce `message_history_settings` window, shorten instruction, split large FAQ Documents |
-| Pagination starting at 1 | All paginated methods use **0-based page numbering** — the first page is `page: 0`, not `page: 1` |
+| Token overflow (context exceeds model limit) | Reduce `message_history_settings` window (pass `type`, `time_minutes` and `last_messages_first_index` together), shorten instruction, split large FAQ Documents |
+| Using `page` on dialogue lists or Vector Knowledge Base pair / report lists | They paginate with `elements` + `last_id`; other lists are returned whole; only `get_user_list` uses `page` (0-based) |
