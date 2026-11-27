@@ -8,10 +8,10 @@ Custom Tools extend a bot's capabilities with arbitrary logic. Each consists of 
 |---|---|
 | `get_custom_tool_action_schema` | JSON schema of one step by `action_type` — **build every step from it**, don't guess step fields |
 | `create_custom_tool` | Create a tool on a bot (`instance_id` + `body`) |
-| `update_custom_tool_by_id` | Change a tool: only the passed fields change, but `actions` are replaced entirely |
+| `update_custom_tool_by_id` | Change a tool: only the passed fields change, but a passed `actions`, `arguments`, `constants`, `return_settings`, `trigger_settings` or `tag_list` replaces the previous value entirely (`trigger_settings: null` removes the auto-trigger) |
 | `get_custom_tool_by_id` / `get_instance_custom_tool_list_by_instance_id` | Read one tool / all tools of a bot |
 | `delete_custom_tool_by_id` | Delete |
-| `test_webhook_action` | Run one webhook step manually (`action_index`) with your own `arguments` and `variables` instead of LLM-filled values; step errors come back in the response body with `error_type`, not as a call error |
+| `test_webhook_action` | Run one webhook step manually: `custom_tool_id` + `body` with `action_index` (from 0) and your own `arguments` / `variables` instead of LLM-filled values. Errors of the request itself come back in the response body with `error_type`, not as a call error; a wrong index, a non-webhook step or missing arguments / variables still fail the call |
 
 > **A new Custom Tool is created disabled** (`is_enabled` defaults to `false`). Pass `is_enabled: true` when creating it, or enable it afterwards — otherwise the bot never sees it.
 
@@ -30,7 +30,7 @@ Main `body` fields: `title`, `tool_name` (function name the bot sees), `tool_des
 | `set_custom_variables` | Set one or more Custom Variables in the dialogue — keys of `variables` are Custom Variable **IDs**, not names |
 | `set_memory` | Set a Memory key-value pair |
 | `add_reminder` | Schedule a Dynamic Follow-up (see `references/follow-ups.md`) |
-| `cancel_reminders` | Cancel pending Follow-Ups by ID or cancel all |
+| `cancel_reminders` | Cancel pending reminders created by `add_reminder` — by ID or all of them |
 | `scrape_url` | Fetch and parse a web page; result into a variable |
 | `extract_text_from_file` | Extract text from a file passed as a tool argument |
 | `request_dialogue_rate` | Ask the client to rate the dialogue (👍/👎 or 1–5 stars) |
@@ -84,7 +84,7 @@ Use when you need guaranteed actions at dialogue start (e.g., CRM lead creation,
 
 `trigger_settings` = `{condition, argument_values, call_condition_id}`:
 - `condition` — one of the events above
-- `argument_values` — the values passed to the tool's arguments, since no LLM fills them. String values are templates: `{{ variable }}` and `{% if %}` work (see `references/writing-prompts.md`)
+- `argument_values` — required: a value for **every** argument of the tool, since no LLM fills them (a tool with `file_id` / `file_id_list` arguments can't have an auto-trigger). String values are templates: `{{ variable }}` and `{% if %}` work (see `references/writing-prompts.md`)
 - `call_condition_id` — optional Call Condition that must be met for the trigger to fire
 
 Auto-triggered tools run invisibly in the background.

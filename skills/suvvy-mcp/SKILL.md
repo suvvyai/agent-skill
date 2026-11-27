@@ -140,7 +140,7 @@ Each bot has:
 
 ### Key Bot Settings
 
-Most bot settings are updated via `update_instance_mcp` (changes in a `body` object — pass only the fields you change). The bot's model and LLM parameters (`llm_code`, `test_llm_code`, `llm_settings.*`, `structured_answer`, `max_answer_tokens`, `parallel_tool_call_limit`) are updated separately via `update_instance_llm` / `set_default_instance_llm` (`preset: "price"` or `"quality"`). Setting groups: LLM & Generation, Dialogue History, Image Handling, Message Filtering, Employee Interception, Response Formatting, RAG / Vector Search, Cost & Performance, Channels & Integrations, Organization & Multi-profile. A few settings groups (Working Hours schedule, Security & Compliance, Notifications & Alerts, anti-spam limits, message-split rules) exist only in the full instance schema and are **not exposed via MCP** — dashboard-only.
+Most bot settings are updated via `update_instance_mcp` (changes in a `body` object — pass only the fields you change). The bot's model and LLM parameters (`llm_code`, `test_llm_code`, `llm_settings.*`, `structured_answer`, `max_answer_tokens`, `parallel_tool_call_limit`) are updated separately via `update_instance_llm` / `set_default_instance_llm` (`preset: "price"` or `"quality"` — the platform's default budget / quality model). Setting groups: LLM & Generation, Dialogue History, Image Handling, Message Filtering, Employee Interception, Response Formatting, RAG / Vector Search, Cost & Performance, Channels & Integrations, Organization & Multi-profile. A few settings groups (Working Hours schedule, Security & Compliance, Notifications & Alerts, anti-spam limits, message-split rules) exist only in the full instance schema and are **not exposed via MCP** — dashboard-only.
 
 > Load `references/bot-settings.md` when configuring bot settings via `update_instance_mcp` — it lists exactly which fields are and aren't available through MCP.
 
@@ -207,7 +207,7 @@ The active bot in a dialog can be switched mid-conversation via a Custom Tool st
 
 **Dialogue ratings** — when a bot uses the `request_dialogue_rate` Custom Tool step, it generates a rating link. Use `get_dialogue_rate_list` to fetch all ratings, or `get_dialogue_rate_list_by_dialogue_id` for a specific dialogue.
 
-**Pagination** — dialogue and rating lists (`get_dialogue_list`, `get_dialogue_messages_by_dialogue_id`, `search_dialogues_by_message_filter`, `get_dialogue_rate_list`) and Vector Knowledge Base lists use a cursor: `elements` (page size, up to 100) and `last_id` — the ID of the last item of the previous page (for `search_dialogues_by_message_filter`, the `message.id` of the last item). Omit `last_id` for the first page.
+**Pagination** — dialogue and rating lists (`get_dialogue_list`, `get_dialogue_messages_by_dialogue_id`, `search_dialogues_by_message_filter`, `get_dialogue_rate_list`) and the Vector Knowledge Base pair and update-report lists (`list_vector_knowledge_base_files`, `list_vector_knowledge_base_update_reports`) use a cursor: `elements` (page size, up to 100) and `last_id` — the ID of the last item of the previous page. Two exceptions: for `search_dialogues_by_message_filter` it is the `message.id` of the last item; for `get_dialogue_messages_by_dialogue_id` with `direction: "ascending"` it is the ID of the **first** item of the previous page, because every page is returned newest-first. Omit `last_id` for the first page. Other lists (bots, FAQ Documents, Tables, Vector Documents, Vector Knowledge Bases) are returned whole.
 
 **Active Follow-Ups in a dialogue** — use `get_active_reminder_list_by_dialogue_id` and `get_scheduled_messages_for_dialogue_by_dialogue_id` to inspect pending Follow-Ups. Use `cancel_reminders_in_dialogue` to cancel them.
 
@@ -293,8 +293,8 @@ Broadcasts send outbound messages to existing dialogue participants based on fil
 
 1. Пользователь называет почту или название компании нужного аккаунта.
 2. Агент вызывает `get_user_list`, передавая почту или название компании в качестве фильтра. **Страницы нумеруются с нуля: первая страница — `page: 0`.**
-3. Агент находит нужного пользователя в ответе и запоминает его `_id`.
-4. Во всех последующих MCP-запросах агент передаёт этот `_id` в опциональном параметре `active_user_id`.
+3. Агент находит нужного пользователя в ответе и запоминает его `id`.
+4. Во всех последующих MCP-запросах агент передаёт этот `id` в опциональном параметре `active_user_id`.
 5. Если при вызове любого тула с `active_user_id` возвращается ошибка `AUTH_PARTNER_ACCESS_FORBIDDEN` — интегратору нужно вручную зайти в личный кабинет Suvvy и переключиться в аккаунт этого пользователя, введя его пароль. После этого можно вернуться к агенту и продолжить работу от имени этого пользователя.
 
 Пока `active_user_id` передаётся, все действия выполняются от имени указанного пользователя. Чтобы вернуться к профилю интегратора — перестать передавать этот параметр.
@@ -463,4 +463,4 @@ When auditing a bot's prompt:
 | Hitting `parallel_tool_call_limit` (field default: 1) with a scenario needing several tool calls per turn | Raise it via `update_instance_llm`, or simplify the scenario / delegate sub-tasks to Subordinate Bots |
 | Contradictory instructions → bot calls the same function twice | Audit instruction for conflicting conditions; ensure each trigger is unique |
 | Token overflow (context exceeds model limit) | Reduce `message_history_settings` window (pass `type`, `time_minutes` and `last_messages_first_index` together), shorten instruction, split large FAQ Documents |
-| Using `page` on dialogue or knowledge base lists | They paginate with `elements` + `last_id`; only `get_user_list` uses `page` (0-based) |
+| Using `page` on dialogue lists or Vector Knowledge Base pair / report lists | They paginate with `elements` + `last_id`; other lists are returned whole; only `get_user_list` uses `page` (0-based) |

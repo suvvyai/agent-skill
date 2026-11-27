@@ -15,7 +15,7 @@ All follow-ups are built from **Scheduled Event Groups**: a group is an ordered 
 
 **How it works (FAQ Document example):** A client asks about pricing → the bot retrieves the FAQ Document with prices → the system schedules the document's group → if the client doesn't reply within the configured time, the follow-up message is sent as a reminder.
 
-**Auto-cancellation:** pending follow-ups are cancelled when the client sends a message. An employee message cancels them too, unless the group has `keep_on_employee_message: true`.
+**Auto-cancellation (group events):** pending events of Scheduled Event Groups are cancelled when the client sends a message. An employee message cancels them too, unless the group has `keep_on_employee_message: true`. Reminders created by the `add_reminder` step are **not** auto-cancelled — cancel them explicitly (see Dynamic Follow-ups below).
 
 ## Managing Groups via MCP
 
@@ -37,7 +37,7 @@ Creating a group does **not** attach it — wire it to the bot or a FAQ Document
 **Timing (`time`, by `mode`):**
 - `absolute_delay` — `delay_minutes` after the group started or after the previous event
 - `after_days_at_time` — `after_days` (0 = today if the time hasn't passed yet, otherwise tomorrow) at `at_time` (`HH:MM`, bot's time zone)
-- `schedule` — weekly schedule: times per weekday (`Mon`…`Sun`, `HH:MM`), at least one time, runs no more than once an hour
+- `schedule` — repeating weekly schedule: all keys `Mon`…`Sun` are required (lists of `HH:MM`, a list may be empty), at least one time overall, runs no more than once an hour. **Such an event must be the only event in its group**
 
 **Action (`action`, by `type`):**
 
@@ -54,11 +54,12 @@ Creating a group does **not** attach it — wire it to the bot or a FAQ Document
 `instruction_text` of `generate_message` is a template — variables `{{ name }}` and `{% if %}` work (see `references/writing-prompts.md`).
 
 **Other event fields:**
-- `call_condition_id` — the event fires only if this Call Condition is met (see `references/call-conditions.md`); this is how "send only if…" logic, including natural-language LLM conditions (`llm_call_instruction`), is configured
+- `name` — required, the event's title
+- `call_condition_id` — the event fires only if this Call Condition is met (see `references/call-conditions.md`); this is how "send only if…" logic, including natural-language LLM conditions (`llm_call_instruction`), is configured. Only `variable`, `call_time`, `call_datetime`, `channel_name` and `llm_call_instruction` conditions are accepted here
 - `call_in_dialogue_limit` — how many times the event may fire in one dialogue (`null` = unlimited)
 - `only_working_time` — fire only during the bot's working hours (the follow-up schedule itself is dashboard-only)
 
-**Chain follow-ups** — several events in one group with different timings create a drip sequence; each event's condition is checked independently.
+**Chain follow-ups** — several events in one group with different timings (`absolute_delay` / `after_days_at_time`) create a drip sequence; each event's condition is checked independently.
 
 ## Dynamic Follow-ups
 
@@ -70,6 +71,6 @@ Dynamic Follow-ups are follow-ups where the send time is calculated **relative t
 
 **Example:** A client books an appointment for Friday at 14:00. Two `add_reminder` steps with offsets `-1440` and `-60` send reminders 1 day and 1 hour before.
 
-The `cancel_reminders` step (and the `cancel_reminders` standard function) cancels them. In a live dialogue, inspect and cancel pending reminders with `get_active_reminder_list_by_dialogue_id`, `get_scheduled_messages_for_dialogue_by_dialogue_id`, `cancel_reminders_in_dialogue`.
+These reminders are not cancelled by a client message — only by the `cancel_reminders` step (and the `cancel_reminders` standard function). In a live dialogue, list pending reminders with `get_active_reminder_list_by_dialogue_id` and cancel them with `cancel_reminders_in_dialogue`. Pending group events are a separate list — `get_scheduled_messages_for_dialogue_by_dialogue_id`; `cancel_reminders_in_dialogue` does not cancel them.
 
 Use dynamic follow-ups for appointments, deadlines, subscription renewals — any scenario where reminder timing must align with a client-specific date.

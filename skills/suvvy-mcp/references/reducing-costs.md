@@ -40,7 +40,7 @@ English text is processed ~3–4× more efficiently by most LLMs compared to Rus
 
 ## Other Levers
 
-- Use a cheaper model when the task doesn't require a powerful one: `llm_code` via `update_instance_llm`, or `set_default_instance_llm` with `preset: "price"` to pick the cheapest available model automatically
+- Use a cheaper model when the task doesn't require a powerful one: `llm_code` via `update_instance_llm`, or `set_default_instance_llm` with `preset: "price"` to switch to the platform's default budget model
 - `llm_settings.reasoning_effort: "minimal"` or `"low"` (via `update_instance_llm`) — fewer reasoning tokens for models that support extended thinking
 - `merge_message_time_seconds` (`update_instance_mcp`) — merge rapid-fire client messages before responding; avoids one LLM call per message burst
 - Working hours (dashboard only) — bot is silent outside working hours; no messages processed = no cost

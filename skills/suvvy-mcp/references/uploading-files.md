@@ -1,6 +1,6 @@
 # Uploading Files
 
-The MCP server does not accept file contents (no base64) — every operation that needs a file takes a URL of a file uploaded to Suvvy storage first, using a presigned upload workflow. Links to other sites are not accepted: download such a file locally first, then upload it.
+The MCP server does not accept file contents (no base64) — every operation that needs a file takes a URL of a file uploaded to Suvvy storage first, using a presigned upload workflow. Most tools reject links to other sites (`FILE_URL_NOT_OUR_STORAGE`): download such a file locally first, then upload it.
 
 ## Step 1 — Get a Presigned URL
 
@@ -31,9 +31,9 @@ Include **all** fields from `upload_fields` as `-F` flags, then add the file las
 | `upload_files_to_send` | `file_url_list` (each file) | 20 MB (`20971520`) |
 | `create_faq_documents_from_xlsx` | `file_url`, `.xlsx` | 5 MB (`5242880`) |
 | `upload_vector_knowledge_base_xlsx`, `sync_vector_knowledge_base_xlsx` | `file_url`, `.xlsx` | 5 MB (`5242880`) |
-| `import_table`, `replace_table` (CSV / Excel) | `body.file_url` | 30 MB |
-| `import_vector_documents` | `file_url_list` | — |
-| `replace_vector_document_text` | `file_url` | — |
+| `import_table`, `replace_table` (CSV / Excel) | `body.file_url` | 30 MB (`31457280`) |
+| `import_vector_documents` | `file_url_list` (1–20 files, each file) | 10 MB (`10485760`) |
+| `replace_vector_document_text` | `file_url` | 10 MB (`10485760`) |
 | `send_message_to_test_dialogue_by_id` | `messages[].message_data`: `{data_type: image\|audio\|file, file_url, file_name}` | — |
 | `answer_in_dialogue_as_an_employee` | `messages[]`: `{data_type: image\|audio\|file, file_url, file_name}` (attachments not supported in every channel) | — |
 

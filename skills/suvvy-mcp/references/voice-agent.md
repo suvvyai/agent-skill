@@ -9,7 +9,7 @@ Suvvy supports a **Voice Agent** mode for phone call interactions. The bot recei
 - `disable_instance_voice_mode` — switches the bot back to text mode; its voice settings are deleted.
 - To create a new voice bot from scratch, call `create_instance` with `template_code: "voice"`.
 
-All voice settings tools below work only for a bot in voice mode.
+All voice settings tools below work only for a bot in voice mode — for a text bot they fail with `INSTANCE_NOT_FOUND`. Current voice settings are returned by `get_instance` in `voice_settings`.
 
 **Writing instructions for voice:** use short sentences, avoid markdown formatting, avoid bullet lists and headers — the bot will speak the text verbatim.
 
@@ -27,7 +27,7 @@ Both settings tools take the changes in a `body` object: pass only the fields yo
 
 ## Changing the Language (`update_instance_voice_language`)
 
-Pass just `language` (a code from `get_voice_agent_language_list`). The language is changed, and the tool **automatically** tries to pick a matching STT model, TTS voice and TTS model for it — only as a complete set: if no complete set exists for the language, the models and voice stay as they were. A language with no available voices at all is rejected. Don't hand-pick a model/voice combo when switching languages.
+Pass just `language` (a code from `get_voice_agent_language_list`). The language is changed, and the tool **automatically** adjusts what no longer fits: the STT model if the current one doesn't support the language, and the voice — keeping the TTS model when it has a compatible voice, otherwise voice and TTS model together (never a voice without a compatible model). Anything it finds no replacement for stays as it was, so check the returned settings. A language with no available voices at all is rejected. Don't hand-pick a model/voice combo when switching languages.
 
 ## STT / TTS Models — always fetch the current catalog first
 
@@ -61,16 +61,16 @@ Controls when the client can interrupt the bot mid-speech. **Both fields are req
 
 - `name` — TTS model identifier, from `get_voice_agent_tts_model_list`
 - `voice_id` — voice identifier, from `get_voice_agent_tts_voice_list`
-- `speed` (0.6–3) — speech rate; rounded to the steps the model supports
+- `speed` (0.6–3) — speech rate; clamped to the provider's range and rounded to the steps the model supports, so the saved value may differ from the one you sent
 - `stability` (0–1) — consistency vs. expressiveness balance
 - `style` (0–1) — liveliness/expressiveness level
 - `similarity_boost` (0–1) — closeness to the reference voice sample
 - `speech_style` (optional) — `professional`, `warmly`, `lively`, `neutral`, `support`, `casual`, `sales`, `formal`, `narrator`
 - `style_preset` (optional) — `strict_business`, `warm_caring`, `energetic_sales`, `thoughtful_expert`, `casual_friendly`; which presets a model supports is listed in the TTS model catalog
-- `accent_stress` (default `true`) — automatic stress marks for pronunciation
-- `chunk_length_schedule` — advanced streaming-chunk tuning; leave at defaults unless diagnosing latency issues
+- `accent_stress` — automatic stress marks for pronunciation; if omitted, the current value is kept
+- `chunk_length_schedule` — advanced streaming-chunk tuning (1–4 values, 50–500). Unlike the other optional fields, omitting it resets it to the default `[120, 160, 250, 290]` — if it was tuned, pass the current value from `get_instance`
 
-A style or preset the chosen model doesn't support is reset. If the bot has an answer style applied (ElevenLabs model with tags and a supported language), `speech_style` and `style_preset` don't affect the speech.
+A style or preset the chosen model or voice doesn't support is reset. If the bot has an answer style applied (ElevenLabs model with tags and a supported language), `speech_style` and `style_preset` don't affect the speech.
 
 ## Filler (field `filler`)
 
@@ -79,7 +79,7 @@ Short "thinking" phrases played while the bot prepares its real response. The ob
 - `categories` — up to 10 named categories: `{"<category name>": {"phrases": [...], "description": "...", "is_enabled": true}}`; each category has 1–5 phrases (up to 25 characters each)
 - `context_enabled` / `context_prompt` — pick fillers based on the conversation context
 
-Enabling fillers without categories fills in the TTS model's default categories. `reset_instance_voice_filler` resets the categories to the TTS model's defaults.
+Because the object is replaced entirely, always send the full `categories` (current ones are in `get_instance`): the TTS model's default categories are filled in only when fillers were off or absent and you enable them without `categories` — on a bot with fillers already on, omitting `categories` clears them. `reset_instance_voice_filler` resets the categories to the TTS model's defaults.
 
 ## Call Settings
 

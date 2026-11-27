@@ -10,7 +10,7 @@ The bot's model and LLM-level parameters are **not** part of `update_instance_mc
 - `llm_settings.reasoning_effort` — reasoning depth: `minimal` / `low` / `medium` / `high`
 - `llm_settings.web_search` — enable internet search (configure `country` and optionally `allowed_domains`)
 - Use `get_llm_list` to fetch the current list of available models before setting `llm_code` or `test_llm_code`.
-- `set_default_instance_llm` — shortcut to pick a model automatically: `preset: "price"` (cheapest) or `preset: "quality"` (highest quality). Use instead of specifying `llm_code` directly.
+- `set_default_instance_llm` — shortcut to switch to one of the platform's default models: `preset: "price"` (default budget model) or `preset: "quality"` (default quality model). These are fixed platform defaults, not a computed cheapest / best model, and the result can differ for bots with model restrictions — check `llm_code` in the response. Use instead of specifying `llm_code` directly.
 - `update_instance_llm` takes the changes in a `body` object (pass only changed fields) and requires a plan that allows changing model settings — otherwise `USER_ACTION_FORBIDDEN`; `set_default_instance_llm` has no such gate.
 - `randomness` — response randomness (integer 0–100): `0` = most deterministic, `10` = balanced, `20` = creative. The UI shows this as Стабильность / Сбалансированность / Креативность. (Also settable via `update_instance_mcp` — present in both request schemas.)
 - `llm_settings.verbosity` — response length: `low`, `medium`, `high`. Use `low` for support bots and marketplaces, `high` for detailed explanations.

@@ -13,9 +13,9 @@ This is a distinct feature from Vector Documents (`references/kb-vector-document
 
 1. `create_vector_knowledge_base` — pass `name` (display name) and `function_name` (unique among the user's knowledge bases; the bot sees it with the `_vector_knowledge_base` suffix)
 2. Add pairs either one at a time (`create_vector_knowledge_base_file`, `update_vector_knowledge_base_file`, `delete_vector_knowledge_base_file`) or in bulk via `upload_vector_knowledge_base_xlsx` (`question` and `answer` columns, `.xlsx` up to 5 MB, uploaded via the presigned-URL flow — see `references/uploading-files.md`)
+3. Attach it to a bot: add its ID to `vector_knowledge_base_id_list` via `update_instance_mcp`
 
 **Full sync from xlsx** — `sync_vector_knowledge_base_xlsx` with columns `id, question, answer`: pairs without `id` are added, changed pairs are updated, and **pairs missing from the file are deleted**. Before syncing, collect all pairs with `list_vector_knowledge_base_files` (page through with `elements` ≤ 100 and `last_id`) so the file contains the whole base. The tool waits for the result and returns a sync report.
-3. Attach it to a bot: add its ID to `vector_knowledge_base_id_list` via `update_instance_mcp`
 
 ## Manual Testing
 

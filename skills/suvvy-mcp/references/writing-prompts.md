@@ -30,7 +30,7 @@ The instruction is always processed as a template (Liquid syntax) before each tu
 
 > Single braces `{variable}` are **not** substituted in the instruction — they stay in the prompt as literal text. Always use `{{ variable }}`. To output literal `{{` / `{%`, wrap the text in `{% raw %}…{% endraw %}`.
 
-Use `get_instance_available_variables` to get the variables available for a given bot: system variables, per-channel variables (base, lead, deal, contact, company, product) and the bot's Custom Variables. In the template they are all plain names: `{{ name }}`.
+Use `get_instance_available_variables` to get the variables available for a given bot: system variables, per-channel variables (`base`, `lead`, `deal`, `contact`, `company`, `product`, `review`, `question`) and the bot's Custom Variables. In the template they are all plain names: `{{ name }}`.
 
 The same template syntax works in other text fields: `structured_answer.chat_instruction`, the Custom Variables block titles (`update_custom_variable_settings`), voice `start_message` / `start_message_instruction`, `instruction_text` of `generate_message` follow-ups (group events and `add_reminder` steps) and string `trigger_settings.argument_values` of auto-triggered Custom Tools. A syntax error in a template is rejected with `INVALID_LIQUID_SYNTAX`.
 
@@ -47,10 +47,10 @@ Templates are always on — there is no setting to enable or disable them. Beyon
 | Variable | Type | Description |
 |---|---|---|
 | `instance_name` | string | Bot's name |
-| `channel_name` | string | Channel code (e.g., `"telegram_bot"`, `"amocrm"`, `"ozon"`) |
+| `channel_name` | string | Channel code (e.g., `"telegram_bot"`, `"amocrm"`, `"ozon_chat"`) |
 | `current_datetime` | string | Formatted: "Saturday, January 02, 2025 at 16:03+03:00" |
 | `current_datetime_iso` | string | ISO 8601 format |
-| `current_date` | string | Formatted: "Saturday, January 02, 2025" |
+| `current_date` | string | Formatted: "Saturday 2025-01-02" |
 | `current_time` | string | Formatted: "16:03+03:00" |
 | `current_timezone` | string | E.g. "UTC+03:00" or an IANA name like "America/Chicago" |
 | `now_datetime` | date-time | Native date object, for use with the `date` filter |
@@ -61,21 +61,23 @@ Templates are always on — there is no setting to enable or disable them. Beyon
 
 > `instance_name`, `current_date`, `current_timezone`, `current_year`, `channel_name` and `instance_max_answer_tokens` don't vary within a single bot across dialogues — using only these (or none) keeps the instruction eligible for prompt caching. Any other variable (including `now_datetime`, `current_datetime`, `current_time`) makes the instruction dialogue-dependent and disables that caching.
 
-Variables from channels and integrations are listed by `get_instance_available_variables` and used as plain names (`{{ lead_name }}`, not `channel_variables.lead_name`).
+Variables of the bot's connected channels (including CRM channels) are listed by `get_instance_available_variables` and used as plain names (`{{ lead_name }}`, not `channel_variables.lead_name`).
 
-To test template branches in the test chat, pass `fake_channel` (and, if needed, `channel_variables`) to `send_message_to_test_dialogue_by_id`.
+To test template branches in the test chat, pass `fake_channel` together with `channel_variables` to `send_message_to_test_dialogue_by_id`. `fake_channel` alone switches the channel's instructions and functions, but the `channel_name` variable stays `test_chat` — if the template branches on `channel_name`, also pass it in `channel_variables` (`{"channel_name": "ozon_chat"}`). `channel_variables` are applied only when `fake_channel` is set.
 
 **Conditionals:**
 
 ```liquid
-{% if channel_name == "ozon" %}
+{% if channel_name contains "ozon" %}
 Article codes for Ozon: OZ123, OZ456
-{% elsif channel_name == "wildberries" %}
+{% elsif channel_name contains "wildberries" %}
 Article codes for Wildberries: WB124954309
 {% else %}
 Use the default article list.
 {% endif %}
 ```
+
+Marketplace channels have separate codes per message kind (`ozon_chat`, `ozon_review`, `ozon_question`, `wildberries_review`, `wildberries_question`, `yandexmarket_chat`, `yandexmarket_review`) — there is no plain `ozon` / `wildberries` code, so compare with `contains` or with the exact code.
 
 **Case/switch** — cleaner for multiple values of the same variable:
 

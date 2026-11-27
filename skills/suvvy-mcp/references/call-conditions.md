@@ -7,6 +7,10 @@ A **Call Condition** is a separate, reusable object on the bot that answers "sho
 - **Follow-up events** — `scheduled_event.call_condition_id` (see `references/follow-ups.md`)
 - **Answer Guardrails** — `call_condition_id`, required (see below)
 
+Not every condition fits every place:
+- **Follow-up events** accept only conditions built from `variable`, `call_time`, `call_datetime`, `channel_name` and `llm_call_instruction` — a follow-up fires without a current message or answer, so other types are rejected.
+- **Answer Guardrails** don't accept conditions containing `dialogue_token_cost`.
+
 ### Tools
 
 | Tool | Purpose |
@@ -21,7 +25,7 @@ A **Call Condition** is a separate, reusable object on the bot that answers "sho
 
 `groups` is a list of groups, each with a `condition_list`. **Groups are combined with AND; conditions inside one group are combined with OR.** There is no other way to choose AND/OR — to express "A and (B or C)", put A in one group and B, C in another.
 
-Each condition is an object `{"type": "<condition type>", "operator": ..., "value": ...}` shaped by `get_call_condition_schema` for that type. Operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, but each type allows only some of them — take them from the schema.
+Most conditions are an object `{"type": "<condition type>", "operator": ..., "value": ...}` (`variable` adds `key`; `llm_call_instruction` has no `operator` / `value`) — the exact shape for each type comes from `get_call_condition_schema`. Operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, but each type allows only some of them — take them from the schema.
 
 ### Condition types
 
@@ -31,12 +35,12 @@ Each condition is an object `{"type": "<condition type>", "operator": ..., "valu
 | `document_called` | A specific FAQ Document was retrieved (`eq`/`ne`) |
 | `incoming_message_phrase` | Phrase in the client's or employee's message |
 | `ai_message_phrase` | Phrase in the bot's answer |
-| `variable` | A Custom Variable (`key`) compared with `value` |
+| `variable` | A dialogue variable by name (`key`) — custom, channel or system variable — compared with `value` |
 | `call_time` | Time of day `HH:MM` on the bot's clock, any day (`gt`/`gte`/`lt`/`lte`) |
 | `call_datetime` | Absolute date and time on the bot's clock, without time zone |
 | `channel_name` | The dialogue's channel (`eq`/`ne`) |
 | `llm_call_instruction` | Natural-language condition checked by an LLM: `call_instruction`, plus `add_function_calls`, `use_instance_history_type` |
-| `ai_message_has_number` | The bot's answer contains a number of the given length |
+| `ai_message_has_number` | The bot's answer contains (`in`) / doesn't contain (`nin`) a number with at least `value` digits (default 1); digits inside links don't count |
 | `incoming_message_with_content_type` | Incoming message is `text`, `file`, `audio` or `image` |
 | `dialogue_customer_message_count` | Client message count reaches N (`eq` only — fires on the turn the counter reaches N, not "more than N") |
 | `dialogue_ai_message_count` | Bot message count reaches N (`eq` only, same semantics) |

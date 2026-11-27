@@ -65,7 +65,7 @@ Images for visual search are managed **in the dashboard only** — MCP returns t
 
 ## Importing FAQ Documents
 
-`create_faq_documents_from_xlsx` is the only bulk import. Format: first row = headers (ignored), rows 2–100 are processed. Columns are either **title, text** or **title, title_for_search, text, is_enabled** (`true`/`false`). Without the `is_enabled` column (or with an empty cell) **the document is created disabled** — enable it with `update_faq_document`. Valid rows are created even if other rows have errors.
+`create_faq_documents_from_xlsx` is the only bulk import. Format: first row = headers (ignored), rows 2–100 are processed. Columns are either **title, text** or **title, title_for_search, text, is_enabled** (`true`/`false`). Without the `is_enabled` column (or with an empty cell) **the document is created disabled** — enable it with `update_faq_document`. Valid rows are created even if other rows have errors — the tool then still returns an error (`TABLE_ROWS_ARE_INVALID`) listing the rows that failed validation, were empty or duplicated. Fix and re-send only those rows, not the whole file, or the created documents will be duplicated.
 
 The file (`.xlsx`, up to 5 MB) is uploaded via the presigned upload workflow first (see `references/uploading-files.md`). Importing FAQ Documents from DOCX/PDF/other files is not available via MCP.
 
