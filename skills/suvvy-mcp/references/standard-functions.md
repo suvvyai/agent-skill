@@ -8,10 +8,11 @@ Standard Functions are built-in callable functions that can be enabled on any bo
 | **Ignore message** | Bot ignores the triggering message and sends no reply | `ignore_message` |
 | **Set dialogue tag** | Bot tags the dialogue with a label (for filtering/reporting) | `set_dialogue_tag` |
 | **Call manager** | Sends a notification to the manager's Telegram when called | `call_manager` |
+| **Add to blacklist** | Adds the client to the blacklist | `add_to_blacklist` |
 
-Each standard function can be enabled/disabled via its `is_enabled` field and given a custom `description` that the bot uses to decide when to call it. For `set_dialogue_tag`, also configure `tag_list` (list of Knowledge Tag IDs the bot can apply).
+Each standard function can be enabled/disabled via its `is_enabled` field and given a custom `description` that the bot uses to decide when to call it. For `set_dialogue_tag`, also configure `tag_list` (list of Knowledge Tag IDs the bot can apply). `stop_dialogue` additionally has `disable_auto_resume` — when the bot stops the dialogue itself, it is not resumed automatically.
 
-Enable/disable in **Доп. настройки → Стандартные функции**. Add explicit trigger conditions in the instruction so the bot knows when to call each one.
+Add explicit trigger conditions in the instruction so the bot knows when to call each one.
 
 ## Reminder Settings
 
@@ -21,13 +22,16 @@ Enable/disable in **Доп. настройки → Стандартные фун
 ## Message Saving & Inactive State
 
 - `save_messages_if_inactive` — save incoming messages to dialogue history even when the bot is paused/inactive.
-- `send_messages_after_inactive` — when the bot resumes activity, send the scheduled messages that accumulated during the inactive period.
-- `schedule_messages_activation_use_instance_model` — use the bot's main LLM model (not the default) when generating scheduled message content.
-- `schedule_messages_without_predict` — send scheduled messages as fixed text without generating a new LLM response.
+- `send_messages_after_inactive` — when the bot becomes active again, reply to the messages that arrived while it was inactive.
+- `schedule_messages_activation_use_instance_model` — use the bot's own model (instead of the default one) to check Follow-Up trigger conditions.
+- `schedule_messages_without_predict` — the bot does **not** reply to the message at all; it only schedules Follow-Ups.
 
 ## Scheduled Event Groups Wiring
 
 Connect bot-level Follow-Up groups to dialogue events via:
 - `scheduled_event_groups_after_instance` — list of group IDs to trigger after every bot message
 - `scheduled_event_groups_after_employee` — list of group IDs to trigger after every employee message
-- `scheduled_event_work_days` — separate work schedule controlling when scheduled event groups are allowed to fire (same format as `work_days`). **Not available via MCP** — `update_instance_mcp`'s input schema excludes it (same reason `work_days` is excluded, see `references/bot-settings.md`); configure it in the dashboard.
+
+Groups themselves are created with the follow-up group tools — see `references/follow-ups.md`.
+
+The follow-up working schedule (used by events with `only_working_time: true`) is **not available via MCP** — configure it in the dashboard.
